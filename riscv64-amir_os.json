@@ -1,0 +1,28 @@
+{
+  "llvm-target": "riscv64",
+  "llvm-abiname": "lp64d",
+  "data-layout": "e-m:e-p:64:64-i64:64-i128:128-n32:64-S128",
+  "arch": "riscv64",
+  "cpu": "generic-rv64",
+  "target-endian": "little",
+  "target-pointer-width": "64",
+  "target-c-int-width": 32,
+  "max-atomic-width": 64,
+  "features": "+m,+a,-f,+d,+c,-v",
+  "os": "none",
+  "executables": true,
+  "linker-flavor": "ld.lld",
+  "linker": "rust-lld",
+  "panic-strategy": "abort",
+  "disable-redzone": true,
+  "dynamic-linking": false,
+  "relocation-model": "pic",
+  "code-model": "medium",
+  "exe-suffix": ".elf",
+  "has-rpath": false,
+  "no-default-libraries": true,
+  "position-independent-executables": false,
+  "pre-link-args": {
+    "ld.lld": ["--script=linker-riscv64.ld"]
+  }
+}
