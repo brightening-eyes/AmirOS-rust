@@ -10,6 +10,7 @@ dependencies = [
  "limine",
  "log",
  "riscv",
+ "slaballoc",
  "spin 0.10.0",
  "uart_16550",
  "x86_64",
@@ -159,6 +160,12 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "slaballoc"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8c184a3899c63b06f7b550eae82b33d7039e39806e1a3727c8855141c532bf3"
 
 [[package]]
 name = "spin"
