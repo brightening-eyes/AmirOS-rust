@@ -1,11 +1,15 @@
 #![no_std]
 #![no_main]
 
+// architecture-specific compiler features
+#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
+
 use core::panic::PanicInfo;
 use limine::*;
 use limine::BaseRevision;
 use limine::request::*;
 pub mod arch;
+pub mod memory;
 pub mod serial;
 
 // boot loader revision
@@ -122,32 +126,35 @@ if !BASE_REVISION.is_supported()
 log::info!("boot loader base revision not supported!.");
 arch::holt();
 }
+log::info!("base revision supported");
+// memory map initialization
+if let Some(memmap) = MEMORY_MAP_REQUEST.get_response()
+{
+log::info!("initializing memory");
+unsafe { memory::init(memmap.entries()) };
+}
+else
+{
+log::error!("could not map the memory");
+arch::holt();
+}
 if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
         log::info!("Booted by: {} v{}", info.name(), info.version());
     }
-log::info!("base revision supported, setting the screen to wight");
-if let Some(framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
+else
 {
-if let Some(framebuffer) = framebuffer_response.framebuffers().next()
+log::error!("boot loader information not available.");
+arch::holt();
+}
+if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
 {
-for i in 0..100_u64
-{
-// Calculate the pixel offset using the framebuffer information we obtained above.
-// We skip `i` scanlines (pitch is provided in bytes) and add `i * 4` to skip `i` pixels forward.
-let pixel_offset = i * framebuffer.pitch() + i * 4;
-// Write 0xFFFFFFFF to the provided pixel offset to fill it white.
-unsafe
-{
-framebuffer.addr().add(pixel_offset as usize).cast::<u32>().write(0xFFFFFFFF)
-                };
-            }
-        }
+log::info!("we have the frame buffer, we'll do for it later");
 }
 arch::init(); // architecture - specific initializations
 log::info!("initialization completed.");
 loop
 {
-
+arch::holt();
 }
 }
 

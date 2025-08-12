@@ -1,6 +1,7 @@
 //! x86_64-specific architecture code.
 
 use core::arch::asm;
+pub mod trap;
 
 /// Halts the CPU.
 ///
@@ -15,7 +16,8 @@ pub fn holt() -> ! {
 }
 
 /// Initializes x86_64-specific features.
-pub fn init() {
-    // Later, we will initialize the GDT, IDT, etc. here.
+pub fn init()
+{
+trap::init();
     log::info!("x86_64 architecture initialized.");
 }
