@@ -1,11 +1,12 @@
 #![no_std]
 #![no_main]
 
-use core::arch::asm;
 use core::panic::PanicInfo;
 use limine::*;
 use limine::BaseRevision;
 use limine::request::*;
+pub mod arch;
+pub mod serial;
 
 // boot loader revision
 #[used]
@@ -114,10 +115,17 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> !{
+serial::init();
+log::info!("logger initialized");
 if !BASE_REVISION.is_supported()
 {
-holt();
+log::info!("boot loader base revision not supported!.");
+arch::holt();
 }
+if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
+        log::info!("Booted by: {} v{}", info.name(), info.version());
+    }
+log::info!("base revision supported, setting the screen to wight");
 if let Some(framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
 {
 if let Some(framebuffer) = framebuffer_response.framebuffers().next()
@@ -135,6 +143,8 @@ framebuffer.addr().add(pixel_offset as usize).cast::<u32>().write(0xFFFFFFFF)
             }
         }
 }
+arch::init(); // architecture - specific initializations
+log::info!("initialization completed.");
 loop
 {
 
@@ -142,19 +152,11 @@ loop
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-holt();
+fn panic(info: &PanicInfo) -> !
+{
+log::error!("{}", info);
+loop
+{
+arch::holt();
 }
-
-fn holt() -> ! {
-    loop {
-        unsafe {
-            #[cfg(target_arch = "x86_64")]
-            asm!("hlt");
-            #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
-            asm!("wfi");
-            #[cfg(target_arch = "loongarch64")]
-            asm!("idle 0");
-        }
-    }
 }
