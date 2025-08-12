@@ -4,7 +4,7 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 use limine::BaseRevision;
-use limine::{request::FramebufferRequest, request::RequestsEndMarker, request::RequestsStartMarker};
+use limine::request::*;
 
 // boot loader revision
 #[used]
