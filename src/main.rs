@@ -10,6 +10,7 @@ use limine::BaseRevision;
 use limine::request::*;
 pub mod arch;
 pub mod serial;
+pub mod memory;
 
 // boot loader revision
 #[used]
