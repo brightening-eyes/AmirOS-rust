@@ -23,6 +23,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "align-address"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ac6c08a67736554282858203cd9b7ff53cf55f54c34e85689962748a350cbf0"
+
+[[package]]
 name = "amir_os"
 version = "0.1.0"
 dependencies = [
@@ -31,10 +37,12 @@ dependencies = [
  "critical-section",
  "either",
  "elf",
+ "free-list",
  "lazy_static",
  "limine",
  "local-waker",
  "log",
+ "memory_addr",
  "page_table_multiarch",
  "riscv",
  "riscv-rt",
@@ -104,6 +112,16 @@ name = "embedded-hal"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
+
+[[package]]
+name = "free-list"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "810f338a4ef98f319a279c9199f35d7ec366c6002ca6a8f18fdcc94cfef9afab"
+dependencies = [
+ "align-address",
+ "smallvec",
+]
 
 [[package]]
 name = "lazy_static"
@@ -294,6 +312,12 @@ checksum = "52b274c61b9873a19293c96f2bf132ebc51fe21f507a91a0e5df0ba6989073b7"
 dependencies = [
  "log",
 ]
+
+[[package]]
+name = "smallvec"
+version = "1.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spin"
