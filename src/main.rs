@@ -11,6 +11,7 @@ use limine::request::*;
 pub mod arch;
 pub mod serial;
 pub mod memory;
+pub mod paging;
 
 // boot loader revision
 #[used]
