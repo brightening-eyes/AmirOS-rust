@@ -3,6 +3,9 @@ use limine::memory_map::Entry;
 use lazy_static::lazy_static;
 use spin::Mutex;
 pub mod allocator;
+pub mod paging;
+
+pub static PAGE_SIZE: usize = 4096;
 
 lazy_static!
 {

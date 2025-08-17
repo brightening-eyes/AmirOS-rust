@@ -3,15 +3,13 @@
 
 // architecture-specific compiler features
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
-
 use core::panic::PanicInfo;
-use limine::*;
 use limine::BaseRevision;
+use limine::paging::Mode;
 use limine::request::*;
 pub mod arch;
 pub mod serial;
 pub mod memory;
-pub mod paging;
 
 // boot loader revision
 #[used]
@@ -47,7 +45,7 @@ static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(paging::Mode::FOUR_LEVEL);
+static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(Mode::FOUR_LEVEL);
 
 #[cfg(target_arch = "riscv64")]
 #[used]
@@ -125,7 +123,10 @@ log::info!("logger initialized");
 if !BASE_REVISION.is_supported()
 {
 log::info!("boot loader base revision not supported!.");
+loop
+{
 arch::holt();
+}
 }
 log::info!("base revision supported");
 if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
@@ -134,7 +135,10 @@ if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
 else
 {
 log::error!("boot loader information not available.");
+loop
+{
 arch::holt();
+}
 }
 if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
 {
@@ -142,6 +146,8 @@ log::info!("we have the frame buffer, we'll do for it later");
 }
 arch::init(); // architecture - specific initializations
 log::info!("initialization completed.");
+memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
+log::info!("memory manager initialized.");
 loop
 {
 arch::holt();

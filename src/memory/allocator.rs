@@ -38,7 +38,7 @@ self.allocator.allocate(layout)
 
 pub unsafe fn deallocate(&mut self, addr: PageRange)
 {
-self.allocator.deallocate(addr).ok();
+unsafe { self.allocator.deallocate(addr).ok() };
 }
 
 }
