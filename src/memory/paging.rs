@@ -6,9 +6,9 @@ use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{PagingHandler};
 
 #[derive(Clone)]
-pub struct OSPagingHandler;
+pub struct AmirOSPagingHandler;
 
-impl PagingHandler for OSPagingHandler {
+impl PagingHandler for AmirOSPagingHandler {
     fn alloc_frame() -> Option<PhysAddr>
 {
 let mut allocator = FRAME_ALLOCATOR.lock();        

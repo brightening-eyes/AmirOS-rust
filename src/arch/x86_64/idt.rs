@@ -2,13 +2,14 @@
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use lazy_static::lazy_static;
 
-lazy_static! {
+lazy_static!
+{
 static ref IDT: InterruptDescriptorTable = {
 let mut idt = InterruptDescriptorTable::new();
 idt.breakpoint.set_handler_fn(breakpoint_handler);
 idt.page_fault.set_handler_fn(page_fault_handler);
 
-        idt
+idt
     };
 }
 
