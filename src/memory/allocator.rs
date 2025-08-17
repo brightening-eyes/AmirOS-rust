@@ -5,7 +5,7 @@ use free_list::{ FreeList, PageRange, PageLayout, AllocError };
 pub struct FrameAllocator
 {
 allocator: FreeList<12>,
-hhdm_offset: u64,
+pub hhdm_offset: u64,
 }
 
 // ensure safety via mutex

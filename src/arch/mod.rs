@@ -24,7 +24,8 @@ pub mod arch;
 ///
 /// This function should be called once at the beginning of the kernel's execution.
 /// It will delegate to the appropriate architecture's init function.
-pub fn init() {
+pub fn init()
+{
     arch::init();
 }
 

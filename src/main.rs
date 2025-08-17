@@ -10,6 +10,7 @@ use limine::request::*;
 pub mod arch;
 pub mod serial;
 pub mod memory;
+pub mod allocator;
 
 // boot loader revision
 #[used]

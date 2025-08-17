@@ -1,7 +1,7 @@
 //! x86_64-specific architecture code.
 use core::arch::asm;
-mod idt;
-mod paging;
+pub mod idt;
+pub mod paging;
 
 /// Halts the CPU.
 ///
