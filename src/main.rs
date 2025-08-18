@@ -10,6 +10,7 @@ use limine::request::*;
 pub mod arch;
 pub mod serial;
 pub mod memory;
+pub mod allocator;
 
 // boot loader revision
 #[used]
@@ -122,11 +123,7 @@ serial::init();
 log::info!("logger initialized");
 if !BASE_REVISION.is_supported()
 {
-log::info!("boot loader base revision not supported!.");
-loop
-{
-arch::holt();
-}
+panic!("boot loader base revision not supported!.");
 }
 log::info!("base revision supported");
 if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
@@ -134,20 +131,19 @@ if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
     }
 else
 {
-log::error!("boot loader information not available.");
-loop
-{
-arch::holt();
-}
+panic!("boot loader information not available.");
 }
 if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
 {
 log::info!("we have the frame buffer, we'll do for it later");
 }
-arch::init(); // architecture - specific initializations
-log::info!("initialization completed.");
 memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
+memory::paging::init_hhdm_offset();
 log::info!("memory manager initialized.");
+arch::init(); // architecture - specific initializations
+log::info!("architecture-specific initialization complete.");
+allocator::init();
+log::info!("allocator initialized.");
 loop
 {
 arch::holt();

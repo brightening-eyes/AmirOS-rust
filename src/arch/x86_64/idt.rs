@@ -20,7 +20,7 @@ log::info!("EXCEPTION: BREAKPOINT");
 
 extern "x86-interrupt" fn page_fault_handler(_frame: InterruptStackFrame, _error_code: PageFaultErrorCode)
 {
-log::info!("page fucking fault!.");
+panic!("page fucking fault!.");
 }
 
 pub fn init()

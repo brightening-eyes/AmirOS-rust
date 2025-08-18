@@ -4,7 +4,7 @@ use free_list::{ FreeList, PageRange, PageLayout, AllocError };
 
 pub struct FrameAllocator
 {
-allocator: FreeList<12>,
+allocator: FreeList<16>,
 pub hhdm_offset: u64,
 }
 
@@ -32,7 +32,7 @@ log::info!("freelist memory allocator initialized.");
 
 pub fn allocate(&mut self, size: usize) -> Result<PageRange, AllocError>
 {
-let layout = PageLayout::from_size(size).unwrap();
+let layout = PageLayout::from_size_align(size, size).unwrap();
 self.allocator.allocate(layout)
 }
 

@@ -9,13 +9,13 @@ pub mod paging;
 /// to put the CPU into a low-power state until the next interrupt.
 pub fn holt() -> !
 {
-    loop
+loop
 {
-        unsafe
+unsafe
 {
-            asm!("hlt");
-        }
-    }
+asm!("hlt");
+}
+}
 }
 
 /// Initializes x86_64-specific features.
@@ -23,5 +23,5 @@ pub fn init()
 {
 idt::init();
 paging::init();
-    log::info!("x86_64 architecture initialized.");
+log::info!("x86_64 architecture initialized.");
 }
