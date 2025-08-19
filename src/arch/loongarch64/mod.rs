@@ -6,16 +6,20 @@ use core::arch::asm;
 ///
 /// This function enters an infinite loop and uses the `hlt` instruction
 /// to put the CPU into a low-power state until the next interrupt.
-pub fn holt() -> ! {
-    loop {
-        unsafe {
-            asm!("idle 0");
-        }
-    }
+pub fn holt() -> !
+{
+loop
+{
+unsafe
+{
+asm!("idle 0");
+}
+}
 }
 
-/// Initializes x86_64-specific features.
-pub fn init() {
+/// Initializes loongarch64-specific features.
+pub fn init()
+{
 // initialization stuff
     log::info!("loongarch64 architecture initialized.");
 }

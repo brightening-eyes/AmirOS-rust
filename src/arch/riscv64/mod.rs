@@ -1,4 +1,4 @@
-//! x86_64-specific architecture code.
+//! riscv64-specific architecture code.
 
 use core::arch::asm;
 pub mod trap;
@@ -8,16 +8,18 @@ pub mod trap;
 /// This function enters an infinite loop and uses the `hlt` instruction
 /// to put the CPU into a low-power state until the next interrupt.
 pub fn holt() -> ! {
-    loop {
-        unsafe {
-            asm!("hlt");
-        }
-    }
+loop
+{
+unsafe
+{
+asm!("wfi");
+}
+}
 }
 
 /// Initializes x86_64-specific features.
 pub fn init()
 {
 trap::init();
-    log::info!("x86_64 architecture initialized.");
+    log::info!("riscv64 architecture initialized.");
 }
