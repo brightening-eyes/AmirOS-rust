@@ -21,7 +21,7 @@ Self { allocator: FreeList::new(), hhdm_offset }
 pub fn init(&mut self, memmap: &[&Entry])
 {
 memmap.iter().filter(|region| region.entry_type == EntryType::USABLE).map(| region | {
-let start = region.base as usize + self.hhdm_offset as usize;
+let start = region.base as usize;
 let end = start + region.length as usize;
 (start..end).try_into()
 }).filter_map(Result::ok).for_each(|region: PageRange| {
