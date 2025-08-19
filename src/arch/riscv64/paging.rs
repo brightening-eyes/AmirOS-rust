@@ -6,7 +6,7 @@ use page_table_multiarch::riscv64::Riscv64PageTable;
 use spin::Mutex;
 
 /// A type alias for the riscv64-specific page table, using our OS's handler.
-pub type PageTable = X64PageTable<AmirOSPagingHandler>;
+pub type PageTable = Riscv64PageTable<AmirOSPagingHandler>;
 
 lazy_static!
 {
@@ -16,7 +16,7 @@ Mutex::new(page_table)
     };
 }
 
-/// Initializes and activates the x86_64 page table.
+/// Initializes and activates the riscv64 page table.
 ///
 /// This function is called from the main architecture initialization routine.
 pub fn init()
