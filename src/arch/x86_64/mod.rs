@@ -1,5 +1,6 @@
 //! x86_64-specific architecture code.
 use core::arch::asm;
+use x86_64::instructions;
 pub mod idt;
 pub mod paging;
 
@@ -21,7 +22,9 @@ asm!("hlt");
 /// Initializes x86_64-specific features.
 pub fn init()
 {
+instructions::interrupts::disable();
 idt::init();
 paging::init();
+instructions::interrupts::enable();
 log::info!("x86_64 architecture initialized.");
 }

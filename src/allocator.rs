@@ -7,18 +7,22 @@ use crate::memory::FRAME_ALLOCATOR;
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
+pub const HEAP_START: usize = 0x_4444_4444_0000;
+pub const HEAP_SIZE: usize = 100 * 1024 * 1024; // 100 KiB
+
 pub fn init()
 {
-let heap_start = 0;
-let heap_end = 10*1024*1024;
-let heap_size = heap_end - heap_start;
 let flags = MappingFlags::READ | MappingFlags::WRITE;
-let _heap = (heap_start..heap_size).step_by(4096).map(|r| {
-PAGE_MAPPER.lock().map(VirtAddr::from(r as usize), PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(4096).unwrap().start()), PageSize::Size4K, flags).expect("failed to map the page.").flush()
-});
-// we have mapped the page, lets initialize the heap
+for page_offset in (0..HEAP_SIZE).step_by(4096)
+{
+let vaddr = VirtAddr::from(HEAP_START + page_offset);
+let paddr = PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(4096).expect("Failed to allocate a frame for the heap.").start());
+PAGE_MAPPER.lock().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
+}
+    // Initialize the heap now that the memory is mapped.
 unsafe
 {
-ALLOCATOR.init(heap_start, heap_size);
+log::info!("initializing heap allocator");
+ALLOCATOR.init(HEAP_START, HEAP_SIZE);
 }
 }
