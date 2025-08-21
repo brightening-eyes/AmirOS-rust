@@ -30,6 +30,7 @@ pub fn init()
 // Get the necessary information from the bootloader.
 let hhdm_offset = crate::HHDM_REQUEST.get_response().unwrap().offset();
 let kernel_addr = crate::EXECUTABLE_ADDRESS_REQUEST.get_response().unwrap();
+let kernel_file = crate::EXECUTABLE_FILE_REQUEST.get_response().unwrap().file();
 let memmap = crate::MEMORY_MAP_REQUEST.get_response().unwrap();
 let mut mapper = PAGE_MAPPER.lock();
 let flags = MappingFlags::READ | MappingFlags::WRITE;
@@ -98,7 +99,7 @@ log::info!("HHDM and low-memory identity mapping complete.");
 let kernel_paddr = PhysAddr::from(kernel_addr.physical_base() as usize);
 let kernel_vaddr = VirtAddr::from(kernel_addr.virtual_base() as usize);
 // Map 16MB for the kernel.
-let kernel_size = 16 * 1024 * 1024;
+let kernel_size = (kernel_file.size() as usize + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
 let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
 
 for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE)

@@ -3,6 +3,7 @@
 
 // architecture-specific compiler features
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
+extern crate alloc;
 use core::panic::PanicInfo;
 use limine::BaseRevision;
 use limine::paging::Mode;
@@ -144,6 +145,7 @@ arch::init(); // architecture - specific initializations
 log::info!("architecture-specific initialization complete.");
 allocator::init();
 log::info!("allocator initialized.");
+
 loop
 {
 arch::holt();
