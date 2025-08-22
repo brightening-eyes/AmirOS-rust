@@ -1,6 +1,7 @@
 //! x86_64-specific architecture code.
 use core::arch::asm;
 use x86_64::instructions;
+pub mod gdt;
 pub mod idt;
 pub mod paging;
 
@@ -23,6 +24,7 @@ asm!("hlt");
 pub fn init()
 {
 instructions::interrupts::disable();
+gdt::init();
 idt::init();
 paging::init();
 instructions::interrupts::enable();
