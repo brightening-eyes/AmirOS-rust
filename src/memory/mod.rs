@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 pub mod allocator;
 pub mod paging;
+pub mod vmm;
 
 pub static PAGE_SIZE: usize = 4096;
 

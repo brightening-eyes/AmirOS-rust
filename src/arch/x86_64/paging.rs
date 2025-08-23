@@ -4,7 +4,6 @@ use crate::memory::paging::AmirOSPagingHandler;
 use lazy_static::lazy_static;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{x86_64::X64PageTable, MappingFlags, PageSize};
-use x86_64::registers::control::{Cr3, Cr3Flags};
 use spin::Mutex;
 use limine::memory_map::EntryType;
 
@@ -109,13 +108,4 @@ let vaddr = kernel_vaddr + offset;
 mapper.map(vaddr, paddr, PageSize::Size4K, kflags).expect("Failed to map kernel page").flush();
 }
 log::info!("Kernel sections mapped.");
-
-// The new page table is ready. Load it into CR3.
-let root_paddr = mapper.root_paddr();
-let frame = x86_64::structures::paging::PhysFrame::from_start_address(x86_64::PhysAddr::new(root_paddr.as_usize() as u64),).unwrap();
-
-// This is the point of no return. After this instruction, the CPU
-// uses our new page table for all memory access.
-unsafe { Cr3::write(frame, Cr3Flags::empty()) };
-log::info!("x86_64 paging initialized and activated.");
 }

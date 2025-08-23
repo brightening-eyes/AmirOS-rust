@@ -3,6 +3,8 @@
 
 // architecture-specific compiler features
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
+
+//crate imports and usages
 extern crate alloc;
 use core::panic::PanicInfo;
 use limine::BaseRevision;
@@ -145,7 +147,33 @@ arch::init(); // architecture - specific initializations
 log::info!("architecture-specific initialization complete.");
 allocator::init();
 log::info!("allocator initialized.");
+if let Some(mp_response) = MP_REQUEST.get_response()
+{
+log::info!("SMP support detected. Found {} CPUs.", mp_response.cpus().len());
+let bsp_lapic_id = mp_response.bsp_lapic_id();
+for cpu in mp_response.cpus()
+{
+if cpu.lapic_id == bsp_lapic_id
+{
+// This is the Bootstrap Processor (BSP), which is already running.
+continue;
+        }
+// This is an Application Processor (AP).
+// We need to start it.
+cpu.goto_address.write(mp_startup);
+}
+}
+loop
+{
+arch::holt();
+}
+}
 
+pub extern "C" fn mp_startup(_cpu: &limine::mp::Cpu) -> !
+{
+log::info!("processor started.");
+// initialize the CPU
+arch::init();
 loop
 {
 arch::holt();
