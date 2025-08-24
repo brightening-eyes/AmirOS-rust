@@ -20,6 +20,8 @@ pub mod arch;
 #[path="aarch64/mod.rs"]
 pub mod arch;
 
+pub type PageTable = arch::PageTable;
+
 /// Initializes architecture-specific features.
 ///
 /// This function should be called once at the beginning of the kernel's execution.

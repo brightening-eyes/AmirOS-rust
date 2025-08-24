@@ -121,7 +121,8 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 #[unsafe(no_mangle)]
-pub extern "C" fn main() -> !{
+pub extern "C" fn main() -> !
+{
 serial::init();
 log::info!("logger initialized");
 if !BASE_REVISION.is_supported()
@@ -129,7 +130,8 @@ if !BASE_REVISION.is_supported()
 panic!("boot loader base revision not supported!.");
 }
 log::info!("base revision supported");
-if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
+if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response()
+{
         log::info!("Booted by: {} v{}", info.name(), info.version());
     }
 else
@@ -141,26 +143,40 @@ if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
 log::info!("we have the frame buffer, we'll do for it later");
 }
 memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
-memory::paging::init_hhdm_offset();
 log::info!("memory manager initialized.");
-arch::init(); // architecture - specific initializations
-log::info!("architecture-specific initialization complete.");
+arch::init();
+log::info!("architecture initialization complete.");
 allocator::init();
 log::info!("allocator initialized.");
 if let Some(mp_response) = MP_REQUEST.get_response()
 {
-log::info!("SMP support detected. Found {} CPUs.", mp_response.cpus().len());
-let bsp_lapic_id = mp_response.bsp_lapic_id();
+// Get the BSP's unique ID in an architecture-agnostic way.
+let bsp_id =
+{
+#[cfg(target_arch = "x86_64")]
+{ mp_response.bsp_lapic_id() }
+#[cfg(target_arch = "riscv64")]
+{ crate::BSP_HARTID_REQUEST.get_response().unwrap().id() }
+#[cfg(target_arch = "aarch64")]
+{ mp_response.bsp_mpidr() }
+};
+log::info!("SMP support detected.");
 for cpu in mp_response.cpus()
 {
-if cpu.lapic_id == bsp_lapic_id
+let cpu_id =
 {
-// This is the Bootstrap Processor (BSP), which is already running.
+#[cfg(target_arch = "x86_64")]
+{ cpu.lapic_id }
+#[cfg(target_arch = "riscv64")]
+{ cpu.hartid }
+#[cfg(target_arch = "aarch64")]
+{ cpu.mpidr }
+};
+/*if cpu_id == bsp_id
+{
 continue;
-        }
-// This is an Application Processor (AP).
-// We need to start it.
-cpu.goto_address.write(mp_startup);
+}*/
+cpu.goto_address.write(os_loop);
 }
 }
 loop
@@ -169,11 +185,9 @@ arch::holt();
 }
 }
 
-pub extern "C" fn mp_startup(_cpu: &limine::mp::Cpu) -> !
+pub extern "C" fn os_loop(_cpu: &limine::mp::Cpu) -> !
 {
 log::info!("processor started.");
-// initialize the CPU
-arch::init();
 loop
 {
 arch::holt();

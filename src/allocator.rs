@@ -1,7 +1,7 @@
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use slab_allocator_rs::LockedHeap;
-use crate::arch::arch::paging::PAGE_MAPPER;
+use crate::memory::PAGE_MAPPER;
 use crate::memory::FRAME_ALLOCATOR;
 
 #[global_allocator]

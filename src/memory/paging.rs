@@ -2,18 +2,9 @@
 use crate::memory::{FRAME_ALLOCATOR, PAGE_SIZE};
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{PagingHandler};
-use core::sync::atomic::{AtomicUsize, Ordering};
-
-static HHDM_OFFSET: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub struct AmirOSPagingHandler;
-
-pub fn init_hhdm_offset()
-{
-let offset = FRAME_ALLOCATOR.lock().hhdm_offset as usize;
-HHDM_OFFSET.store(offset, Ordering::Relaxed);
-}
 
 impl PagingHandler for AmirOSPagingHandler {
     fn alloc_frame() -> Option<PhysAddr>
@@ -42,10 +33,8 @@ unsafe { FRAME_ALLOCATOR.lock().deallocate(page_range) };
 
 fn phys_to_virt(paddr: PhysAddr) -> VirtAddr
 {
-let offset = HHDM_OFFSET.load(Ordering::Relaxed);
-assert!(offset != 0, "HHDM offset not initialized");
 let pa = paddr.as_usize();
-offset.checked_add(pa).map(VirtAddr::from_usize).expect("failed to allocate address")
+pa.checked_add(FRAME_ALLOCATOR.lock().hhdm_offset).map(VirtAddr::from_usize).expect("failed to allocate address")
 }
 
 }
