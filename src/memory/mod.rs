@@ -60,7 +60,7 @@ let paddr = PhysAddr::from(pa);
 // Prioritize the largest possible page size.
 if pa.is_multiple_of(PAGE_SIZE_1G) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZE_1G) && remaining >= PAGE_SIZE_1G
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset));
+let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size1G, flags).expect("Failed to map 1G HHDM page").flush();
 if pa < 0x1_0000_0000
 {
@@ -71,7 +71,7 @@ pa += PAGE_SIZE_1G;
 }
 else if pa.is_multiple_of(PAGE_SIZE_2M) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZE_2M) && remaining >= PAGE_SIZE_2M
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset));
+let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size2M, flags).expect("Failed to map 2M HHDM page").flush();
 
 if pa < 0x1_0000_0000
@@ -83,7 +83,7 @@ pa += PAGE_SIZE_2M;
 }
 else
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset));
+let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size4K, flags).expect("Failed to map 4K HHDM page").flush();
 if pa < 0x1_0000_0000
 {

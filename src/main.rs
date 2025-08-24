@@ -151,7 +151,7 @@ log::info!("allocator initialized.");
 if let Some(mp_response) = MP_REQUEST.get_response()
 {
 // Get the BSP's unique ID in an architecture-agnostic way.
-let bsp_id =
+/*let bsp_id =
 {
 #[cfg(target_arch = "x86_64")]
 { mp_response.bsp_lapic_id() }
@@ -159,11 +159,11 @@ let bsp_id =
 { crate::BSP_HARTID_REQUEST.get_response().unwrap().id() }
 #[cfg(target_arch = "aarch64")]
 { mp_response.bsp_mpidr() }
-};
+};*/
 log::info!("SMP support detected.");
 for cpu in mp_response.cpus()
 {
-let cpu_id =
+/*let cpu_id =
 {
 #[cfg(target_arch = "x86_64")]
 { cpu.lapic_id }
@@ -171,7 +171,7 @@ let cpu_id =
 { cpu.hartid }
 #[cfg(target_arch = "aarch64")]
 { cpu.mpidr }
-};
+};*/
 /*if cpu_id == bsp_id
 {
 continue;
