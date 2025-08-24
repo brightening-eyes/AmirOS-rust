@@ -9,7 +9,6 @@ pub write: bool,
 pub execute: bool,
 }
 
-#[derive(Clone)]
 pub struct VirtualMemoryArea
 {
 interval: Interval<VirtAddr>,
