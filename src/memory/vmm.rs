@@ -21,6 +21,12 @@ pub struct VirtualAddressSpace
 vmas: IntervalTree<VirtAddr, VirtualMemoryArea>,
 }
 
+impl Default for VirtualAddressSpace {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VirtualAddressSpace
 {
 

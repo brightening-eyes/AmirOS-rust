@@ -12,8 +12,8 @@ impl PagingHandler for AmirOSPagingHandler {
 let mut allocator = FRAME_ALLOCATOR.lock();        
 if let Ok(page_range) = allocator.allocate(PAGE_SIZE)
 {
-let paddr = page_range.start() as usize;
-Some(PhysAddr::from(paddr as usize))
+let paddr = page_range.start();
+Some(PhysAddr::from(paddr))
 }
 else
 {

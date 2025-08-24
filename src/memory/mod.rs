@@ -30,7 +30,7 @@ pub fn init(memmap: &[&Entry])
 {
 FRAME_ALLOCATOR.lock().init(memmap);
 // Get the necessary information from the bootloader.
-let hhdm_offset = FRAME_ALLOCATOR.lock().hhdm_offset as usize;
+let hhdm_offset = FRAME_ALLOCATOR.lock().hhdm_offset;
 let kernel_addr = crate::EXECUTABLE_ADDRESS_REQUEST.get_response().unwrap();
 let kernel_file = crate::EXECUTABLE_FILE_REQUEST.get_response().unwrap().file();
 let mut mapper = PAGE_MAPPER.lock();
@@ -55,42 +55,42 @@ let mut pa = start_pa;
 while pa < end_pa
 {
 let remaining = end_pa - pa;
-let paddr = PhysAddr::from(pa as usize);
+let paddr = PhysAddr::from(pa);
 
 // Prioritize the largest possible page size.
-if pa % PAGE_SIZE_1G == 0 && (pa + hhdm_offset) % PAGE_SIZE_1G == 0 && remaining >= PAGE_SIZE_1G
+if pa.is_multiple_of(PAGE_SIZE_1G) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZE_1G) && remaining >= PAGE_SIZE_1G
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset) as usize);
+let vaddr = VirtAddr::from(((pa + hhdm_offset)));
 mapper.map(vaddr, paddr, PageSize::Size1G, flags).expect("Failed to map 1G HHDM page").flush();
 if pa < 0x1_0000_0000
 {
-let identity_vaddr = VirtAddr::from(pa as usize);
+let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size1G, flags).expect("Failed to identity map 1G low page").flush();
 }
 pa += PAGE_SIZE_1G;
 }
-else if pa % PAGE_SIZE_2M == 0 && (pa + hhdm_offset) % PAGE_SIZE_2M == 0 && remaining >= PAGE_SIZE_2M
+else if pa.is_multiple_of(PAGE_SIZE_2M) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZE_2M) && remaining >= PAGE_SIZE_2M
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset) as usize);
+let vaddr = VirtAddr::from(((pa + hhdm_offset)));
 mapper.map(vaddr, paddr, PageSize::Size2M, flags).expect("Failed to map 2M HHDM page").flush();
 
 if pa < 0x1_0000_0000
 {
-let identity_vaddr = VirtAddr::from(pa as usize);
+let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size2M, flags).expect("Failed to identity map 2M low page").flush();
 }
 pa += PAGE_SIZE_2M;
 }
 else
 {
-let vaddr = VirtAddr::from((pa + hhdm_offset) as usize);
+let vaddr = VirtAddr::from(((pa + hhdm_offset)));
 mapper.map(vaddr, paddr, PageSize::Size4K, flags).expect("Failed to map 4K HHDM page").flush();
 if pa < 0x1_0000_0000
 {
-let identity_vaddr = VirtAddr::from(pa as usize);
+let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size4K, flags).expect("Failed to identity map 4K low page").flush();
 }
-pa += crate::memory::PAGE_SIZE as usize;
+pa += crate::memory::PAGE_SIZE;
 }
 }
 }
