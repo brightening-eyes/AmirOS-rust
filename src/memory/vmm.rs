@@ -11,7 +11,6 @@ pub execute: bool,
 
 pub struct VirtualMemoryArea
 {
-interval: Interval<VirtAddr>,
 permissions: Permissions,
 }
 
