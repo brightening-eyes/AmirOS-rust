@@ -1,17 +1,10 @@
 use memory_addr::VirtAddr;
 use meminterval::{IntervalTree, Interval};
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Permissions
-{
-pub read: bool,
-pub write: bool,
-pub execute: bool,
-}
+use page_table_multiarch::MappingFlags;
 
 pub struct VirtualMemoryArea
 {
-permissions: Permissions,
+flags: MappingFlags
 }
 
 pub struct VirtualAddressSpace
@@ -72,6 +65,18 @@ return Some(search_start_addr);
 }
 }
 }
+}
+
+pub fn allocate(&mut self, address: VirtAddr, size: usize, value: VirtualMemoryArea)
+{
+let end_address = VirtAddr::from_usize(address.as_usize() + size); // starting address + size
+self.vmas.insert(Interval::new(address, end_address), value);
+}
+
+pub fn dealloc(&mut self, address: VirtAddr, size: usize)
+{
+let end_address = VirtAddr::from_usize(address.as_usize() + size); // starting address + size
+self.vmas.delete(Interval::new(address, end_address));
 }
 
 }
