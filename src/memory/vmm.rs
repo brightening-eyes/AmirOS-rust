@@ -4,7 +4,7 @@ use page_table_multiarch::MappingFlags;
 
 pub struct VirtualMemoryArea
 {
-flags: MappingFlags
+pub flags: MappingFlags
 }
 
 pub struct VirtualAddressSpace

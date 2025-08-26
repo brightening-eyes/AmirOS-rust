@@ -67,13 +67,13 @@ if pa.is_multiple_of(PAGE_SIZE_1G) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZ
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size1G, flags).expect("Failed to map 1G HHDM page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(vaddr, PAGE_SIZE_1G, area);
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size1G, flags).expect("Failed to identity map 1G low page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(identity_vaddr, PAGE_SIZE_1G, area);
 }
 pa += PAGE_SIZE_1G;
@@ -82,14 +82,14 @@ else if pa.is_multiple_of(PAGE_SIZE_2M) && (pa + hhdm_offset).is_multiple_of(PAG
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size2M, flags).expect("Failed to map 2M HHDM page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(vaddr, PAGE_SIZE_2M, area);
 
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size2M, flags).expect("Failed to identity map 2M low page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(identity_vaddr, PAGE_SIZE_2M, area);
 }
 pa += PAGE_SIZE_2M;
@@ -98,13 +98,13 @@ else
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size4K, flags).expect("Failed to map 4K HHDM page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(vaddr, PAGE_SIZE, area);
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size4K, flags).expect("Failed to identity map 4K low page").flush();
-let area: VirtualMemoryArea = { flags: flags };
+let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
 vmas.allocate(vaddr, PAGE_SIZE, area);
 }
 pa += PAGE_SIZE;
@@ -119,7 +119,7 @@ let kernel_vaddr = VirtAddr::from(kernel_addr.virtual_base() as usize);
 // Map 16MB for the kernel.
 let kernel_size = (kernel_file.size() as usize + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
 let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
-let kernel_area: VirtualMemoryArea = { flags: kflags };
+let kernel_area: VirtualMemoryArea = VirtualMemoryArea { flags: kflags };
 vmas.allocate(kernel_vaddr, kernel_size, kernel_area);
 for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE)
 {
