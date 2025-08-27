@@ -33,8 +33,6 @@ Self { vmas: IntervalTree::new(), }
 // A simple approach: start searching from the beginning of userspace
 let mut search_start_addr = VirtAddr::from_usize(0x1000); // Start at a safe, non-null address
 let mut search_end_addr = VirtAddr::from_usize(search_start_addr.as_usize() + size); // starting address + size
-
-
 loop
 {
 // Find the next interval that might overlap with our search address

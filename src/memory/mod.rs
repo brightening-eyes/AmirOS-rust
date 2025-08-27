@@ -1,4 +1,5 @@
 // memory management
+use core::alloc::Layout;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use limine::memory_map::{Entry, EntryType};
@@ -128,4 +129,23 @@ let vaddr = kernel_vaddr + offset;
 mapper.map(vaddr, paddr, PageSize::Size4K, kflags).expect("Failed to map kernel page").flush();
 }
 log::info!("Kernel sections mapped.");
+}
+
+pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr>
+{
+let size = layout.size();
+let flags = MappingFlags::READ | MappingFlags::WRITE;
+let paddr = PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(size).expect("Failed to allocate a frame for the heap.").start());
+let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
+let vaddr = vmas.find_free_area(size).expect("failed to find a virtual address");
+vmas.allocate(vaddr, size, VirtualMemoryArea { flags: flags });
+PAGE_MAPPER.lock().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
+Some(vaddr)
+}
+
+pub fn kernel_dealloc(address: VirtAddr, layout: Layout)
+{
+let size = layout.size();
+VIRTUAL_ADDRESS_SPACE.lock().dealloc(address, size);
+PAGE_MAPPER.lock().unmap(address);
 }
