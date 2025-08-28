@@ -148,6 +148,8 @@ arch::init();
 log::info!("architecture initialization complete.");
 allocator::init();
 log::info!("allocator initialized.");
+memory::init_vmm();
+log::info!("virtual address space initialized and populated");
 if let Some(mp_response) = MP_REQUEST.get_response()
 {
 // Get the BSP's unique ID in an architecture-agnostic way.

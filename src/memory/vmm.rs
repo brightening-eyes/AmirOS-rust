@@ -2,6 +2,7 @@ use memory_addr::VirtAddr;
 use meminterval::{IntervalTree, Interval};
 use page_table_multiarch::MappingFlags;
 
+#[derive(Clone, Copy)]
 pub struct VirtualMemoryArea
 {
 pub flags: MappingFlags

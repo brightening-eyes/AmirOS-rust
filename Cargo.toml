@@ -17,6 +17,7 @@ local-waker = "0.1.4"
 log = "0.4.27"
 meminterval = "0.4.2"
 memory_addr = "0.4.0"
+page_table_entry = "0.5.5"
 page_table_multiarch = "0.5.5"
 slab_allocator_rs = "1.0.2"
 slabmalloc = "0.11.0"
@@ -36,6 +37,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+lto = true
 
 [[bin]]
 name = "amir_os"

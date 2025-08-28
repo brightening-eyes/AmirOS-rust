@@ -2,6 +2,7 @@
 use core::alloc::Layout;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
+use page_table_entry::GenericPTE;
 use limine::memory_map::{Entry, EntryType};
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -31,15 +32,23 @@ pub static PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
 pub static PAGE_SIZE_2M: usize = 2 * 1024 * 1024;
 pub static PAGE_SIZE: usize = 4096;
 
+#[derive(Clone, Copy)]
+struct MappingInfo
+{
+vaddr: VirtAddr,
+size: usize,
+area: VirtualMemoryArea,
+}
+
 pub fn init(memmap: &[&Entry])
 {
+// initialize our frame allocator.
 FRAME_ALLOCATOR.lock().init(memmap);
 // Get the necessary information from the bootloader.
 let hhdm_offset = FRAME_ALLOCATOR.lock().hhdm_offset;
 let kernel_addr = crate::EXECUTABLE_ADDRESS_REQUEST.get_response().unwrap();
 let kernel_file = crate::EXECUTABLE_FILE_REQUEST.get_response().unwrap().file();
 let mut mapper = PAGE_MAPPER.lock();
-let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
 let flags = MappingFlags::READ | MappingFlags::WRITE;
 
 // First, map all physical memory to the higher-half direct map (HHDM) region.
@@ -68,14 +77,10 @@ if pa.is_multiple_of(PAGE_SIZE_1G) && (pa + hhdm_offset).is_multiple_of(PAGE_SIZ
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size1G, flags).expect("Failed to map 1G HHDM page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(vaddr, PAGE_SIZE_1G, area);
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size1G, flags).expect("Failed to identity map 1G low page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(identity_vaddr, PAGE_SIZE_1G, area);
 }
 pa += PAGE_SIZE_1G;
 }
@@ -83,15 +88,10 @@ else if pa.is_multiple_of(PAGE_SIZE_2M) && (pa + hhdm_offset).is_multiple_of(PAG
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size2M, flags).expect("Failed to map 2M HHDM page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(vaddr, PAGE_SIZE_2M, area);
-
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size2M, flags).expect("Failed to identity map 2M low page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(identity_vaddr, PAGE_SIZE_2M, area);
 }
 pa += PAGE_SIZE_2M;
 }
@@ -99,14 +99,10 @@ else
 {
 let vaddr = VirtAddr::from(pa + hhdm_offset);
 mapper.map(vaddr, paddr, PageSize::Size4K, flags).expect("Failed to map 4K HHDM page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(vaddr, PAGE_SIZE, area);
 if pa < 0x1_0000_0000
 {
 let identity_vaddr = VirtAddr::from(pa);
 mapper.map(identity_vaddr, paddr, PageSize::Size4K, flags).expect("Failed to identity map 4K low page").flush();
-let area: VirtualMemoryArea = VirtualMemoryArea { flags: flags };
-vmas.allocate(vaddr, PAGE_SIZE, area);
 }
 pa += PAGE_SIZE;
 }
@@ -117,11 +113,8 @@ log::info!("HHDM and low-memory identity mapping complete.");
 // Second, map the kernel itself at its higher-half virtual address.
 let kernel_paddr = PhysAddr::from(kernel_addr.physical_base() as usize);
 let kernel_vaddr = VirtAddr::from(kernel_addr.virtual_base() as usize);
-// Map 16MB for the kernel.
 let kernel_size = (kernel_file.size() as usize + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
 let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
-let kernel_area: VirtualMemoryArea = VirtualMemoryArea { flags: kflags };
-vmas.allocate(kernel_vaddr, kernel_size, kernel_area);
 for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE)
 {
 let paddr = kernel_paddr + offset;
@@ -131,12 +124,37 @@ mapper.map(vaddr, paddr, PageSize::Size4K, kflags).expect("Failed to map kernel 
 log::info!("Kernel sections mapped.");
 }
 
+pub fn init_vmm()
+{
+let mut mapper = PAGE_MAPPER.lock();
+let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
+let closure = |level: usize, index: usize, address: VirtAddr, pte: GenericPTE|
+{
+let flags = pte.flags();
+let area = VirtualMemoryArea { flags };
+let size = match level
+{
+1 => PAGE_SIZE_1G,
+2 => PAGE_SIZE_2M
+
+,
+3 => PAGE_SIZE,
+_ => 0,
+};
+if size > 0
+{
+vmas.allocate(address, size, area);
+}
+};
+mapper.walk(usize::MAX, Some(&closure), None).expect("could not walk the page mapper");
+}
+
 pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr>
 {
+let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
 let size = layout.size();
 let flags = MappingFlags::READ | MappingFlags::WRITE;
 let paddr = PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(size).expect("Failed to allocate a frame for the heap.").start());
-let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
 let vaddr = vmas.find_free_area(size).expect("failed to find a virtual address");
 vmas.allocate(vaddr, size, VirtualMemoryArea { flags: flags });
 PAGE_MAPPER.lock().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
@@ -147,5 +165,5 @@ pub fn kernel_dealloc(address: VirtAddr, layout: Layout)
 {
 let size = layout.size();
 VIRTUAL_ADDRESS_SPACE.lock().dealloc(address, size);
-PAGE_MAPPER.lock().unmap(address);
+let _ = PAGE_MAPPER.lock().unmap(address);
 }
