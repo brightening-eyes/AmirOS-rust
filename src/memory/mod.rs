@@ -33,14 +33,6 @@ pub static PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
 pub static PAGE_SIZE_2M: usize = 2 * 1024 * 1024;
 pub static PAGE_SIZE: usize = 4096;
 
-#[derive(Clone, Copy)]
-struct MappingInfo
-{
-vaddr: VirtAddr,
-size: usize,
-area: VirtualMemoryArea,
-}
-
 pub fn init(memmap: &[&Entry])
 {
 // initialize our frame allocator.
@@ -127,9 +119,8 @@ log::info!("Kernel sections mapped.");
 
 pub fn init_vmm()
 {
-let mut mapper = PAGE_MAPPER.lock();
-let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
-let closure = |level: usize, index: usize, address: VirtAddr, pte: &PageTableEntry|
+let mapper = PAGE_MAPPER.lock();
+let closure = |level: usize, _index: usize, address: VirtAddr, pte: &PageTableEntry|
 {
 let flags = pte.flags();
 let area = VirtualMemoryArea { flags };
@@ -142,7 +133,7 @@ _ => 0,
 };
 if size > 0
 {
-vmas.allocate(address, size, area);
+VIRTUAL_ADDRESS_SPACE.lock().allocate(address, size, area);
 }
 };
 mapper.walk(usize::MAX, Some(&closure), None).expect("could not walk the page mapper");
