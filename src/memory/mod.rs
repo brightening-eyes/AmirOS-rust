@@ -128,7 +128,6 @@ log::info!("Kernel sections mapped.");
 pub fn init_vmm()
 {
 let mut mapper = PAGE_MAPPER.lock();
-let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
 let closure = |level: usize, index: usize, address: VirtAddr, pte: &PageTableEntry|
 {
 let flags = pte.flags();
@@ -142,7 +141,7 @@ _ => 0,
 };
 if size > 0
 {
-vmas.allocate(address, size, area);
+VIRTUAL_ADDRESS_SPACE.lock().allocate(address, size, area);
 }
 };
 mapper.walk(usize::MAX, Some(&closure), None).expect("could not walk the page mapper");
