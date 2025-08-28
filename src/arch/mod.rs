@@ -21,6 +21,7 @@ pub mod arch;
 pub mod arch;
 
 pub type PageTable = arch::PageTable;
+pub type PageTableEntry = arch::PageTableEntry;
 
 /// Initializes architecture-specific features.
 ///

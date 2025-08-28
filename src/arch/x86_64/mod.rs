@@ -7,7 +7,7 @@ pub mod idt;
 pub mod paging;
 
 pub type PageTable = paging::PageTable;
-
+pub type PageTableEntry = paging::PageTableEntry;
 
 
 /// Halts the CPU.

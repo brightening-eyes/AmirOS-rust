@@ -1,17 +1,18 @@
 // memory management
 use core::alloc::Layout;
 use memory_addr::{PhysAddr, VirtAddr};
-use page_table_multiarch::{MappingFlags, PageSize};
-use page_table_entry::GenericPTE;
+use page_table_multiarch::{MappingFlags, PageSize, GenericPTE};
 use limine::memory_map::{Entry, EntryType};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use crate::memory::vmm::VirtualMemoryArea;
+use crate::arch;
 pub mod allocator;
 pub mod paging;
 pub mod vmm;
 
 pub type PageTable = crate::arch::PageTable;
+pub type PageTableEntry = arch::PageTableEntry;
 
 lazy_static!
 {
@@ -128,16 +129,14 @@ pub fn init_vmm()
 {
 let mut mapper = PAGE_MAPPER.lock();
 let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
-let closure = |level: usize, index: usize, address: VirtAddr, pte: GenericPTE|
+let closure = |level: usize, index: usize, address: VirtAddr, pte: &PageTableEntry|
 {
 let flags = pte.flags();
 let area = VirtualMemoryArea { flags };
 let size = match level
 {
 1 => PAGE_SIZE_1G,
-2 => PAGE_SIZE_2M
-
-,
+2 => PAGE_SIZE_2M,
 3 => PAGE_SIZE,
 _ => 0,
 };
