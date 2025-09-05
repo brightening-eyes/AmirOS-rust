@@ -8,6 +8,7 @@ acpi = "5.2.0"
 async-task = { version = "4.7.1", default-features = false }
 bit_field="0.10.3"
 critical-section = "1.2.0"
+crossbeam = { version = "0.8.4", default-features = false, features = ["alloc"] }
 either = { version = "1.15.0", default-features = false }
 elf = { version = "0.8.0", default-features = false }
 free-list = "0.3.1"
@@ -19,7 +20,6 @@ meminterval = "0.4.2"
 memory_addr = "0.4.0"
 page_table_entry = "0.5.5"
 page_table_multiarch = "0.5.5"
-slab_allocator_rs = "1.0.2"
 slabmalloc = "0.11.0"
 spin = "0.10.0"
 uart_16550 = "0.4.0"
