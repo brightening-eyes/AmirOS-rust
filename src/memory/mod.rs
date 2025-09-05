@@ -4,7 +4,7 @@ use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize, GenericPTE};
 use limine::memory_map::{Entry, EntryType};
 use lazy_static::lazy_static;
-use spin::Mutex;
+use spin::RwLock;
 use crate::memory::vmm::VirtualMemoryArea;
 use crate::arch;
 pub mod allocator;
@@ -16,16 +16,16 @@ pub type PageTableEntry = arch::PageTableEntry;
 
 lazy_static!
 {
-pub static ref FRAME_ALLOCATOR: Mutex<allocator::FrameAllocator> = {
+pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
 let hhdm_offset = crate::HHDM_REQUEST.get_response().unwrap().offset() as usize;
-Mutex::new(allocator::FrameAllocator::new(hhdm_offset))
+RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
 };
-pub static ref PAGE_MAPPER: Mutex<PageTable> = {
+pub static ref PAGE_MAPPER: RwLock<PageTable> = {
 let page_table = PageTable::try_new().expect("Failed to create x86_64 page table");
-Mutex::new(page_table)
+RwLock::new(page_table)
     };
-pub static ref VIRTUAL_ADDRESS_SPACE: Mutex<vmm::VirtualAddressSpace> = {
-Mutex::new(vmm::VirtualAddressSpace::new())
+pub static ref VIRTUAL_ADDRESS_SPACE: RwLock<vmm::VirtualAddressSpace> = {
+RwLock::new(vmm::VirtualAddressSpace::new())
 };
 }
 
@@ -36,12 +36,12 @@ pub static PAGE_SIZE: usize = 4096;
 pub fn init(memmap: &[&Entry])
 {
 // initialize our frame allocator.
-FRAME_ALLOCATOR.lock().init(memmap);
+FRAME_ALLOCATOR.write().init(memmap);
 // Get the necessary information from the bootloader.
-let hhdm_offset = FRAME_ALLOCATOR.lock().hhdm_offset;
+let hhdm_offset = FRAME_ALLOCATOR.read().hhdm_offset;
 let kernel_addr = crate::EXECUTABLE_ADDRESS_REQUEST.get_response().unwrap();
 let kernel_file = crate::EXECUTABLE_FILE_REQUEST.get_response().unwrap().file();
-let mut mapper = PAGE_MAPPER.lock();
+let mut mapper = PAGE_MAPPER.write();
 let flags = MappingFlags::READ | MappingFlags::WRITE;
 
 // First, map all physical memory to the higher-half direct map (HHDM) region.
@@ -119,7 +119,7 @@ log::info!("Kernel sections mapped.");
 
 pub fn init_vmm()
 {
-let mapper = PAGE_MAPPER.lock();
+let mapper = PAGE_MAPPER.read();
 let closure = |level: usize, _index: usize, address: VirtAddr, pte: &PageTableEntry|
 {
 let flags = pte.flags();
@@ -133,7 +133,7 @@ _ => 0,
 };
 if size > 0
 {
-VIRTUAL_ADDRESS_SPACE.lock().allocate(address, size, area);
+VIRTUAL_ADDRESS_SPACE.write().allocate(address, size, area);
 }
 };
 mapper.walk(usize::MAX, Some(&closure), None).expect("could not walk the page mapper");
@@ -141,19 +141,19 @@ mapper.walk(usize::MAX, Some(&closure), None).expect("could not walk the page ma
 
 pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr>
 {
-let mut vmas = VIRTUAL_ADDRESS_SPACE.lock();
+let mut vmas = VIRTUAL_ADDRESS_SPACE.write();
 let size = layout.size();
 let flags = MappingFlags::READ | MappingFlags::WRITE;
-let paddr = PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(size).expect("Failed to allocate a frame for the heap.").start());
+let paddr = PhysAddr::from(FRAME_ALLOCATOR.write().allocate(size).expect("Failed to allocate a frame for the heap.").start());
 let vaddr = vmas.find_free_area(size).expect("failed to find a virtual address");
 vmas.allocate(vaddr, size, VirtualMemoryArea { flags: flags });
-PAGE_MAPPER.lock().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
+PAGE_MAPPER.write().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
 Some(vaddr)
 }
 
 pub fn kernel_dealloc(address: VirtAddr, layout: Layout)
 {
 let size = layout.size();
-VIRTUAL_ADDRESS_SPACE.lock().dealloc(address, size);
-let _ = PAGE_MAPPER.lock().unmap(address);
+VIRTUAL_ADDRESS_SPACE.write().dealloc(address, size);
+let _ = PAGE_MAPPER.write().unmap(address);
 }

@@ -29,12 +29,21 @@ instructions::interrupts::disable();
 gdt::init();
 idt::init();
 // page table is ready. load into Cr3
-let root_paddr = crate::memory::PAGE_MAPPER.lock().root_paddr();
+match crate::memory::PAGE_MAPPER.try_read()
+{
+Some(mapper) =>
+{
+let root_paddr = mapper.root_paddr();
 let frame = x86_64::structures::paging::PhysFrame::from_start_address(x86_64::PhysAddr::new(root_paddr.as_usize() as u64)).unwrap();
-
 // This is the point of no return. After this instruction, the CPU
 // uses our new page table for all memory access.
 unsafe { Cr3::write(frame, Cr3Flags::empty()) };
+},
+None =>
+{
+panic!("error reading page map!.");
+}
+}
 instructions::interrupts::enable();
 log::info!("x86_64 architecture initialized.");
 }
