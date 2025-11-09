@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-acpi = "5.2.0"
+acpi = "6.0.1"
 async-task = { version = "4.7.1", default-features = false }
 bit_field="0.10.3"
 critical-section = "1.2.0"
@@ -29,8 +29,8 @@ vte = { version = "0.15.0", default-features = false }
 x86_64 = "0.15.2"
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-riscv = "0.14.0"
-riscv-rt = "0.15.0"
+riscv = "0.15.0"
+riscv-rt = "0.16.0"
 
 [profile.dev]
 panic = "abort"
