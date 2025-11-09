@@ -22,15 +22,12 @@ impl PagingHandler for AmirOSPagingHandler {
     }
 
     fn dealloc_frame(paddr: PhysAddr) {
-        match FRAME_ALLOCATOR.try_write() {
-            Some(mut allocator) => {
-                let vaddr_start = paddr.as_usize();
-                let vaddr_end = vaddr_start + PAGE_SIZE;
-                if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
-                    unsafe { allocator.deallocate(page_range) };
-                }
+        if let Some(mut allocator) = FRAME_ALLOCATOR.try_write() {
+            let vaddr_start = paddr.as_usize();
+            let vaddr_end = vaddr_start + PAGE_SIZE;
+            if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
+                unsafe { allocator.deallocate(page_range) };
             }
-            None => (),
         }
     }
 

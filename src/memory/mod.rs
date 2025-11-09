@@ -24,7 +24,7 @@ lazy_static! {
         RwLock::new(page_table)
     };
     pub static ref VIRTUAL_ADDRESS_SPACE: RwLock<vmm::VirtualAddressSpace> =
-        { RwLock::new(vmm::VirtualAddressSpace::new()) };
+        RwLock::new(vmm::VirtualAddressSpace::new());
 }
 
 pub static PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
@@ -167,7 +167,7 @@ pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr> {
     let vaddr = vmas
         .find_free_area(size)
         .expect("failed to find a virtual address");
-    vmas.allocate(vaddr, size, VirtualMemoryArea { flags: flags });
+    vmas.allocate(vaddr, size, VirtualMemoryArea { flags });
     PAGE_MAPPER
         .write()
         .map(vaddr, paddr, PageSize::Size4K, flags)
