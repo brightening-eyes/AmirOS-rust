@@ -9,41 +9,37 @@ pub mod paging;
 pub type PageTable = paging::PageTable;
 pub type PageTableEntry = paging::PageTableEntry;
 
-
 /// Halts the CPU.
 ///
 /// This function enters an infinite loop and uses the `hlt` instruction
 /// to put the CPU into a low-power state until the next interrupt.
-pub fn holt()
-{
-unsafe
-{
-asm!("hlt");
-}
+pub fn holt() {
+    unsafe {
+        asm!("hlt");
+    }
 }
 
 /// Initializes x86_64-specific features.
-pub fn init()
-{
-instructions::interrupts::disable();
-gdt::init();
-idt::init();
-// page table is ready. load into Cr3
-match crate::memory::PAGE_MAPPER.try_read()
-{
-Some(mapper) =>
-{
-let root_paddr = mapper.root_paddr();
-let frame = x86_64::structures::paging::PhysFrame::from_start_address(x86_64::PhysAddr::new(root_paddr.as_usize() as u64)).unwrap();
-// This is the point of no return. After this instruction, the CPU
-// uses our new page table for all memory access.
-unsafe { Cr3::write(frame, Cr3Flags::empty()) };
-},
-None =>
-{
-panic!("error reading page map!.");
-}
-}
-instructions::interrupts::enable();
-log::info!("x86_64 architecture initialized.");
+pub fn init() {
+    instructions::interrupts::disable();
+    gdt::init();
+    idt::init();
+    // page table is ready. load into Cr3
+    match crate::memory::PAGE_MAPPER.try_read() {
+        Some(mapper) => {
+            let root_paddr = mapper.root_paddr();
+            let frame = x86_64::structures::paging::PhysFrame::from_start_address(
+                x86_64::PhysAddr::new(root_paddr.as_usize() as u64),
+            )
+            .unwrap();
+            // This is the point of no return. After this instruction, the CPU
+            // uses our new page table for all memory access.
+            unsafe { Cr3::write(frame, Cr3Flags::empty()) };
+        }
+        None => {
+            panic!("error reading page map!.");
+        }
+    }
+    instructions::interrupts::enable();
+    log::info!("x86_64 architecture initialized.");
 }

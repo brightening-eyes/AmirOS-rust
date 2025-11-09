@@ -12,12 +12,12 @@ pub mod arch;
 #[path = "riscv64/mod.rs"]
 pub mod arch;
 
-#[cfg(target_arch="loongarch64")]
-#[path="loongarch64/mod.rs"]
+#[cfg(target_arch = "loongarch64")]
+#[path = "loongarch64/mod.rs"]
 pub mod arch;
 
-#[cfg(target_arch="aarch64")]
-#[path="aarch64/mod.rs"]
+#[cfg(target_arch = "aarch64")]
+#[path = "aarch64/mod.rs"]
 pub mod arch;
 
 pub type PageTable = arch::PageTable;
@@ -27,12 +27,10 @@ pub type PageTableEntry = arch::PageTableEntry;
 ///
 /// This function should be called once at the beginning of the kernel's execution.
 /// It will delegate to the appropriate architecture's init function.
-pub fn init()
-{
+pub fn init() {
     arch::init();
 }
 
-pub fn holt()
-{
-arch::holt();
+pub fn holt() {
+    arch::holt();
 }

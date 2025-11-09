@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-
 // architecture-specific compiler features
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
 
@@ -10,10 +9,10 @@ use core::panic::PanicInfo;
 use limine::BaseRevision;
 use limine::paging::Mode;
 use limine::request::*;
-pub mod arch;
-pub mod serial;
-pub mod memory;
 pub mod allocator;
+pub mod arch;
+pub mod memory;
+pub mod serial;
 
 // boot loader revision
 #[used]
@@ -49,12 +48,14 @@ static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(Mode::FOUR_LEVEL);
+static PAGING_MODE_REQUEST: PagingModeRequest =
+    PagingModeRequest::new().with_mode(Mode::FOUR_LEVEL);
 
 #[cfg(target_arch = "riscv64")]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(paging::Mode::SV48);
+static PAGING_MODE_REQUEST: PagingModeRequest =
+    PagingModeRequest::new().with_mode(paging::Mode::SV48);
 
 // bootstrap all cores on the system
 #[used]
@@ -121,87 +122,74 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
 #[unsafe(no_mangle)]
-pub extern "C" fn main() -> !
-{
-serial::init();
-log::info!("logger initialized");
-if !BASE_REVISION.is_supported()
-{
-panic!("boot loader base revision not supported!.");
-}
-log::info!("base revision supported");
-if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response()
-{
-        log::info!("Booted by: {} v{}", info.name(), info.version());
+pub extern "C" fn main() -> ! {
+    serial::init();
+    log::info!("logger initialized");
+    if !BASE_REVISION.is_supported() {
+        panic!("boot loader base revision not supported!.");
     }
-else
-{
-panic!("boot loader information not available.");
-}
-if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response()
-{
-log::info!("we have the frame buffer, we'll do for it later");
-}
-memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
-log::info!("memory manager initialized.");
-arch::init();
-log::info!("architecture initialization complete.");
-allocator::init();
-log::info!("allocator initialized.");
-memory::init_vmm();
-log::info!("virtual address space initialized and populated");
-if let Some(mp_response) = MP_REQUEST.get_response()
-{
-// Get the BSP's unique ID in an architecture-agnostic way.
-/*let bsp_id =
-{
-#[cfg(target_arch = "x86_64")]
-{ mp_response.bsp_lapic_id() }
-#[cfg(target_arch = "riscv64")]
-{ crate::BSP_HARTID_REQUEST.get_response().unwrap().id() }
-#[cfg(target_arch = "aarch64")]
-{ mp_response.bsp_mpidr() }
-};*/
-log::info!("SMP support detected.");
-for cpu in mp_response.cpus()
-{
-/*let cpu_id =
-{
-#[cfg(target_arch = "x86_64")]
-{ cpu.lapic_id }
-#[cfg(target_arch = "riscv64")]
-{ cpu.hartid }
-#[cfg(target_arch = "aarch64")]
-{ cpu.mpidr }
-};*/
-/*if cpu_id == bsp_id
-{
-continue;
-}*/
-cpu.goto_address.write(os_loop);
-}
-}
-loop
-{
-arch::holt();
-}
+    log::info!("base revision supported");
+    if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
+        log::info!("Booted by: {} v{}", info.name(), info.version());
+    } else {
+        panic!("boot loader information not available.");
+    }
+    if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response() {
+        log::info!("we have the frame buffer, we'll do for it later");
+    }
+    memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
+    log::info!("memory manager initialized.");
+    arch::init();
+    log::info!("architecture initialization complete.");
+    allocator::init();
+    log::info!("allocator initialized.");
+    memory::init_vmm();
+    log::info!("virtual address space initialized and populated");
+    if let Some(mp_response) = MP_REQUEST.get_response() {
+        // Get the BSP's unique ID in an architecture-agnostic way.
+        /*let bsp_id =
+        {
+        #[cfg(target_arch = "x86_64")]
+        { mp_response.bsp_lapic_id() }
+        #[cfg(target_arch = "riscv64")]
+        { crate::BSP_HARTID_REQUEST.get_response().unwrap().id() }
+        #[cfg(target_arch = "aarch64")]
+        { mp_response.bsp_mpidr() }
+        };*/
+        log::info!("SMP support detected.");
+        for cpu in mp_response.cpus() {
+            /*let cpu_id =
+            {
+            #[cfg(target_arch = "x86_64")]
+            { cpu.lapic_id }
+            #[cfg(target_arch = "riscv64")]
+            { cpu.hartid }
+            #[cfg(target_arch = "aarch64")]
+            { cpu.mpidr }
+            };*/
+            /*if cpu_id == bsp_id
+            {
+            continue;
+            }*/
+            cpu.goto_address.write(os_loop);
+        }
+    }
+    loop {
+        arch::holt();
+    }
 }
 
-pub extern "C" fn os_loop(_cpu: &limine::mp::Cpu) -> !
-{
-log::info!("processor started.");
-loop
-{
-arch::holt();
-}
+pub extern "C" fn os_loop(_cpu: &limine::mp::Cpu) -> ! {
+    log::info!("processor started.");
+    loop {
+        arch::holt();
+    }
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> !
-{
-log::error!("{}", info);
-loop
-{
-arch::holt();
-}
+fn panic(info: &PanicInfo) -> ! {
+    log::error!("{}", info);
+    loop {
+        arch::holt();
+    }
 }

@@ -3,17 +3,13 @@
 use core::arch::asm;
 
 /// Halts the CPU.
-pub fn holt() -> !
-{
-unsafe
-{
-asm!("wfi");
-}
+pub fn holt() -> ! {
+    unsafe {
+        asm!("wfi");
+    }
 }
 
 /// Initialize rutines
-pub fn init()
-{
-
+pub fn init() {
     log::info!("aarch64 architecture initialized.");
 }
