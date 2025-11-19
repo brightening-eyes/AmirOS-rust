@@ -16,8 +16,8 @@ let flags = MappingFlags::READ | MappingFlags::WRITE;
 for page_offset in (0..HEAP_SIZE).step_by(4096)
 {
 let vaddr = VirtAddr::from(HEAP_START + page_offset);
-let paddr = PhysAddr::from(FRAME_ALLOCATOR.lock().allocate(4096).expect("Failed to allocate a frame for the heap.").start());
-PAGE_MAPPER.lock().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
+let paddr = PhysAddr::from(FRAME_ALLOCATOR.write().allocate(4096).expect("Failed to allocate a frame for the heap.").start());
+PAGE_MAPPER.write().map(vaddr, paddr, PageSize::Size4K, flags).expect("failed to map the page.").flush();
 }
     // Initialize the heap now that the memory is mapped.
 unsafe
