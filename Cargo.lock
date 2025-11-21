@@ -251,9 +251,9 @@ dependencies = [
 
 [[package]]
 name = "page_table_entry"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba811ef8ca8fb33d776e128624cb4fe25c9804cab96f83b822d4322431e6dd5a"
+checksum = "8415cc8b14e18d0fde1624042d51206441c4de7d07bfb3e8102e7ca41fbceba7"
 dependencies = [
  "aarch64-cpu",
  "bitflags 2.10.0",
