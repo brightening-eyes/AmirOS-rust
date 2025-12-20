@@ -242,9 +242,9 @@ dependencies = [
 
 [[package]]
 name = "memory_addr"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d4054cba279515fa87761b101d857333ce06391dbe8f18a11347204a7111416"
+checksum = "b1f0625c50adb5f6aaf47f05cae3c4dbc13a74c659241b06c4576f3d7e1da940"
 
 [[package]]
 name = "num-traits"
