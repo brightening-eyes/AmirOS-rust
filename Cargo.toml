@@ -21,10 +21,6 @@ memory_addr = "0.4.1"
 page_table_entry = "0.5.7"
 page_table_multiarch = "0.5.7"
 slab_allocator_rs = "1.0.2"
-<<<<<<< HEAD
-slabmalloc = "0.11.0"
-=======
->>>>>>> 0ff3d93928274109ed46c61c2861fe0abd9bbe57
 spin = "0.10.0"
 uart_16550 = "0.4.0"
 vte = { version = "0.15.0", default-features = false }

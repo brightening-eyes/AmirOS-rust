@@ -54,10 +54,6 @@ dependencies = [
  "riscv 0.15.0",
  "riscv-rt",
  "slab_allocator_rs",
-<<<<<<< HEAD
- "slabmalloc",
-=======
->>>>>>> 0ff3d93928274109ed46c61c2861fe0abd9bbe57
  "spin 0.10.0",
  "uart_16550",
  "vte",
@@ -413,19 +409,6 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "slab_allocator_rs"
 version = "1.0.2"
-<<<<<<< HEAD
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31a8e8ee8bbe463a97fb0d7bbd5a539a84923b5561f6e151f49895c349693669"
-dependencies = [
- "buddy_system_allocator",
- "spin 0.9.8",
-]
-
-[[package]]
-name = "slabmalloc"
-version = "0.11.0"
-=======
->>>>>>> 0ff3d93928274109ed46c61c2861fe0abd9bbe57
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31a8e8ee8bbe463a97fb0d7bbd5a539a84923b5561f6e151f49895c349693669"
 dependencies = [
@@ -468,9 +451,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.109"
+version = "2.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f17c7e013e88258aa9543dcbe81aca68a667a9ac37cd69c9fbc07858bfe0e2f"
+checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
 dependencies = [
  "proc-macro2",
  "quote",

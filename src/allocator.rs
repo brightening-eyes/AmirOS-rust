@@ -10,7 +10,6 @@ static ALLOCATOR: LockedHeap = LockedHeap::empty();
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024 * 1024; // 100 KiB
 
-<<<<<<< HEAD
 pub fn init() {
     let flags = MappingFlags::READ | MappingFlags::WRITE;
     for page_offset in (0..HEAP_SIZE).step_by(4096) {
