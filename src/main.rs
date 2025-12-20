@@ -9,6 +9,8 @@ use core::panic::PanicInfo;
 use limine::BaseRevision;
 use limine::paging::Mode;
 use limine::request::{BootloaderInfoRequest, FirmwareTypeRequest, StackSizeRequest, HhdmRequest, FramebufferRequest, PagingModeRequest, MpRequest, MemoryMapRequest, ExecutableFileRequest, RsdpRequest, SmbiosRequest, EfiSystemTableRequest, EfiMemoryMapRequest, DateAtBootRequest, ExecutableAddressRequest, DeviceTreeBlobRequest, RequestsStartMarker, RequestsEndMarker};
+#[cfg(target_arch = "riscv64")]
+use limine::request::BspHartidRequest;
 pub mod allocator;
 pub mod arch;
 pub mod memory;
@@ -55,7 +57,7 @@ static PAGING_MODE_REQUEST: PagingModeRequest =
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 static PAGING_MODE_REQUEST: PagingModeRequest =
-    PagingModeRequest::new().with_mode(paging::Mode::SV48);
+    PagingModeRequest::new().with_mode(Mode::SV48);
 
 // bootstrap all cores on the system
 #[used]

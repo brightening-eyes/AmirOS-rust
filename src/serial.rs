@@ -1,4 +1,5 @@
 use core::fmt;
+use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
@@ -20,7 +21,7 @@ lazy_static! {
                 // For RISC-V, we use Memory-Mapped I/O.
                 // The standard address for the UART in QEMU's 'virt' machine is 0x10000000.
                 // We must use the `new_mmio()` constructor for this.
-                unsafe { uart_16550::SerialPort::new_mmio(0x10000000) }
+                unsafe { SerialPort::new_mmio(0x10000000) }
             }
         };
 
@@ -33,7 +34,6 @@ lazy_static! {
 // This allows us to use it with Rust's formatting macros like `println!` and `write!`.
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    use core::fmt::Write;
     // Add a guard to prevent deadlocks if a panic occurs while the lock is held.
     if let Some(mut writer) = SERIAL_WRITER.try_lock() {
         writer.write_fmt(args).expect("Printing to serial failed");

@@ -36,8 +36,12 @@ riscv-rt = "0.16.0"
 panic = "abort"
 
 [profile.release]
+debug = 0
+opt-level = 3
+codegen-units = 1
 panic = "abort"
-lto = true
+lto = "fat"
+strip = "symbols"
 
 [[bin]]
 name = "amir_os"

@@ -1,7 +1,11 @@
 //! riscv64-specific architecture code.
 
 use core::arch::asm;
-pub mod trap;
+use riscv::register::satp;
+pub mod paging;
+
+pub type PageTable = paging::PageTable;
+pub type PageTableEntry = paging::PageTableEntry;
 
 /// Halts the CPU.
 ///
@@ -13,8 +17,17 @@ pub fn holt() {
     }
 }
 
-/// Initializes x86_64-specific features.
+/// Initializes riscv64-specific features.
 pub fn init() {
-    trap::init();
+    match crate::memory::PAGE_MAPPER.try_read() {
+        Some(mapper) => {
+            let root_paddr = mapper.root_paddr().as_usize();
+let ppn = root_paddr / 4096; // Convert address to Physical Page Number
+            unsafe { satp::set(satp::Mode::Sv48, 0, ppn) };
+        }
+        None => {
+            panic!("error reading page map!.");
+        }
+    }
     log::info!("riscv64 architecture initialized.");
 }
