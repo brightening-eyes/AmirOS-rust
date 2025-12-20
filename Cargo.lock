@@ -269,9 +269,9 @@ dependencies = [
 
 [[package]]
 name = "page_table_multiarch"
-version = "0.5.5"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98cb76e21ce462270afd83b331599d5b83f876c2a98c0a70382b20d73e1da6be"
+checksum = "9fa11a21844255e14aa6688ef0eafb058d7be19338633024fb59417f1bfb07f8"
 dependencies = [
  "log",
  "memory_addr",
