@@ -54,7 +54,10 @@ dependencies = [
  "riscv 0.15.0",
  "riscv-rt",
  "slab_allocator_rs",
+<<<<<<< HEAD
  "slabmalloc",
+=======
+>>>>>>> 0ff3d93928274109ed46c61c2861fe0abd9bbe57
  "spin 0.10.0",
  "uart_16550",
  "vte",
@@ -404,6 +407,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "slab_allocator_rs"
 version = "1.0.2"
+<<<<<<< HEAD
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31a8e8ee8bbe463a97fb0d7bbd5a539a84923b5561f6e151f49895c349693669"
 dependencies = [
@@ -414,10 +418,13 @@ dependencies = [
 [[package]]
 name = "slabmalloc"
 version = "0.11.0"
+=======
+>>>>>>> 0ff3d93928274109ed46c61c2861fe0abd9bbe57
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52b274c61b9873a19293c96f2bf132ebc51fe21f507a91a0e5df0ba6989073b7"
+checksum = "31a8e8ee8bbe463a97fb0d7bbd5a539a84923b5561f6e151f49895c349693669"
 dependencies = [
- "log",
+ "buddy_system_allocator",
+ "spin 0.9.8",
 ]
 
 [[package]]
