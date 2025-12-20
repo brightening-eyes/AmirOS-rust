@@ -8,7 +8,7 @@ extern crate alloc;
 use core::panic::PanicInfo;
 use limine::BaseRevision;
 use limine::paging::Mode;
-use limine::request::*;
+use limine::request::{BootloaderInfoRequest, FirmwareTypeRequest, StackSizeRequest, HhdmRequest, FramebufferRequest, PagingModeRequest, MpRequest, MemoryMapRequest, ExecutableFileRequest, RsdpRequest, SmbiosRequest, EfiSystemTableRequest, EfiMemoryMapRequest, DateAtBootRequest, ExecutableAddressRequest, DeviceTreeBlobRequest, RequestsStartMarker, RequestsEndMarker};
 pub mod allocator;
 pub mod arch;
 pub mod memory;
@@ -125,9 +125,7 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 pub extern "C" fn main() -> ! {
     serial::init();
     log::info!("logger initialized");
-    if !BASE_REVISION.is_supported() {
-        panic!("boot loader base revision not supported!.");
-    }
+    assert!(BASE_REVISION.is_supported(), "boot loader base revision not supported!.");
     log::info!("base revision supported");
     if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
         log::info!("Booted by: {} v{}", info.name(), info.version());
@@ -188,7 +186,7 @@ pub extern "C" fn os_loop(_cpu: &limine::mp::Cpu) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    log::error!("{}", info);
+    log::error!("{info}");
     loop {
         arch::holt();
     }

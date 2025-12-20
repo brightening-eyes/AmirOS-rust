@@ -11,6 +11,7 @@ pub struct FrameAllocator {
 unsafe impl Send for FrameAllocator {}
 
 impl FrameAllocator {
+    #[must_use] 
     pub const fn new(hhdm_offset: usize) -> Self {
         Self {
             allocator: FreeList::new(),
@@ -32,7 +33,7 @@ impl FrameAllocator {
                 unsafe {
                     self.allocator
                         .deallocate(region)
-                        .expect("failed to add the memory region to the allocator.")
+                        .expect("failed to add the memory region to the allocator.");
                 };
             });
         log::info!("freelist memory allocator initialized.");

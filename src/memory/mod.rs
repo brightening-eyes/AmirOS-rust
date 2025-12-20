@@ -20,7 +20,7 @@ lazy_static! {
         RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
     };
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
-        let page_table = PageTable::try_new().expect("Failed to create x86_64 page table");
+        let page_table = PageTable::try_new().expect("Failed to create page table");
         RwLock::new(page_table)
     };
     pub static ref VIRTUAL_ADDRESS_SPACE: RwLock<vmm::VirtualAddressSpace> =
@@ -48,7 +48,7 @@ pub fn init(memmap: &[&Entry]) {
     // We also identity-map the first 4GiB. This is a robust technique to ensure
     // that the CPU can continue execution seamlessly after the CR3 switch, as it
     // makes physical addresses temporarily valid as virtual addresses.
-    for entry in memmap.iter() {
+    for entry in memmap {
         // We map all memory types except for bad memory. This includes the kernel,
         // modules, and bootloader-reclaimable memory.
         if matches!(entry.entry_type, EntryType::BAD_MEMORY) {
@@ -153,6 +153,7 @@ pub fn init_vmm() {
         .expect("could not walk the page mapper");
 }
 
+#[must_use] 
 pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr> {
     let mut vmas = VIRTUAL_ADDRESS_SPACE.write();
     let size = layout.size();

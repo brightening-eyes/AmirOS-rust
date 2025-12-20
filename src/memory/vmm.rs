@@ -18,12 +18,14 @@ impl Default for VirtualAddressSpace {
 }
 
 impl VirtualAddressSpace {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             vmas: IntervalTree::new(),
         }
     }
 
+    #[must_use] 
     pub fn find_free_area(&self, size: usize) -> Option<VirtAddr> {
         // A simple approach: start searching from the beginning of userspace
         let mut search_start_addr = VirtAddr::from_usize(0x1000); // Start at a safe, non-null address
@@ -44,12 +46,11 @@ impl VirtualAddressSpace {
                     {
                         // We found a gap!
                         return Some(search_start_addr);
-                    } else {
-                        // No gap, so move our search address to the end of this interval
-                        search_start_addr = entry.interval.end;
-                        search_end_addr =
-                            VirtAddr::from_usize(entry.interval.end.as_usize() + size);
                     }
+                    // No gap, so move our search address to the end of this interval
+                    search_start_addr = entry.interval.end;
+                    search_end_addr =
+                        VirtAddr::from_usize(entry.interval.end.as_usize() + size);
                 }
                 None => {
                     // No more intervals, so this address is free
