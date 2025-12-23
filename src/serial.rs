@@ -2,8 +2,10 @@ use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use uart_16550::SerialPort;
-
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+use uart_16550::MmioSerialPort as SerialPort;
 lazy_static! {
     pub static ref SERIAL_WRITER: Mutex<SerialPort> = {
         // We use conditional compilation to select the correct initialization
@@ -21,7 +23,7 @@ lazy_static! {
                 // For RISC-V, we use Memory-Mapped I/O.
                 // The standard address for the UART in QEMU's 'virt' machine is 0x10000000.
                 // We must use the `new_mmio()` constructor for this.
-                unsafe { SerialPort::new_mmio(0x10000000) }
+                unsafe { SerialPort::new(0x10000000) }
             }
         };
 
