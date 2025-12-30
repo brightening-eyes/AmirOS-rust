@@ -6,6 +6,7 @@
 //module declarations
 pub mod allocator;
 pub mod arch;
+pub mod heap;
 pub mod memory;
 pub mod serial;
 
