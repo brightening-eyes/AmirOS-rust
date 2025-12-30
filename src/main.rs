@@ -3,18 +3,19 @@
 // architecture-specific compiler features
 #![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
 
+//module declarations
+pub mod allocator;
+pub mod arch;
+pub mod memory;
+pub mod serial;
+
 //crate imports and usages
-extern crate alloc;
 use core::panic::PanicInfo;
 use limine::BaseRevision;
 use limine::paging::Mode;
 use limine::request::{BootloaderInfoRequest, FirmwareTypeRequest, StackSizeRequest, HhdmRequest, FramebufferRequest, PagingModeRequest, MpRequest, MemoryMapRequest, ExecutableFileRequest, RsdpRequest, SmbiosRequest, EfiSystemTableRequest, EfiMemoryMapRequest, DateAtBootRequest, ExecutableAddressRequest, DeviceTreeBlobRequest, RequestsStartMarker, RequestsEndMarker};
 #[cfg(target_arch = "riscv64")]
 use limine::request::BspHartidRequest;
-pub mod allocator;
-pub mod arch;
-pub mod memory;
-pub mod serial;
 
 // boot loader revision
 #[used]
