@@ -17,7 +17,7 @@ local-waker = "0.1.4"
 log = "0.4.29"
 meminterval = "0.4.2"
 memory_addr = "0.4.1"
-object = { version="0.38.0", default-features=false, features=["read"] }
+object = { version="0.38.1", default-features=false, features=["read"] }
 page_table_entry = "0.5.7"
 page_table_multiarch = "0.5.7"
 slab_allocator_rs = "1.0.2"
