@@ -27,9 +27,9 @@ dependencies = [
 
 [[package]]
 name = "align-address"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ac6c08a67736554282858203cd9b7ff53cf55f54c34e85689962748a350cbf0"
+checksum = "cee078b3ed87e2621e0389729e2f032cc0408a4548768ced01678c9451c62237"
 
 [[package]]
 name = "amir_os"
@@ -171,9 +171,9 @@ checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 
 [[package]]
 name = "free-list"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "810f338a4ef98f319a279c9199f35d7ec366c6002ca6a8f18fdcc94cfef9afab"
+checksum = "0ba44ae6efa756ce2b7c4f2f7602adcfd2d85957dccb4bbdcea0675bae0a1a3d"
 dependencies = [
  "align-address",
  "smallvec",
