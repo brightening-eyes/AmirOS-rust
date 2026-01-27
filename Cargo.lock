@@ -49,7 +49,7 @@ dependencies = [
  "meminterval",
  "memory_addr",
  "object",
- "page_table_entry",
+ "page_table_entry 0.5.7",
  "page_table_multiarch",
  "riscv 0.16.0",
  "slab_allocator_rs",
@@ -270,14 +270,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "page_table_multiarch"
-version = "0.5.7"
+name = "page_table_entry"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fa11a21844255e14aa6688ef0eafb058d7be19338633024fb59417f1bfb07f8"
+checksum = "3f199b41c77b82c8b7ccf3da749d550b78d0293067d3e12bc06c231511b31dc0"
 dependencies = [
+ "aarch64-cpu",
+ "bitflags 2.10.0",
+ "memory_addr",
+ "x86_64",
+]
+
+[[package]]
+name = "page_table_multiarch"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e58ff6be19a78285c51360f8107d031872f20ba5f9e04b0718efadd1ccaabced"
+dependencies = [
+ "arrayvec",
  "log",
  "memory_addr",
- "page_table_entry",
+ "page_table_entry 0.6.0",
  "riscv 0.14.0",
  "x86",
 ]
