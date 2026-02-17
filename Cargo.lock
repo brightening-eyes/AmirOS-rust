@@ -42,6 +42,7 @@ dependencies = [
  "crossbeam",
  "either",
  "free-list",
+ "husky-rs",
  "lazy_static",
  "limine",
  "local-waker",
@@ -178,6 +179,12 @@ dependencies = [
  "align-address",
  "smallvec",
 ]
+
+[[package]]
+name = "husky-rs"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e19b1f9afa96d1ad62b9709744752f11f1e6d9ff8675ff3f53eac1b95f5d168"
 
 [[package]]
 name = "lazy_static"
