@@ -22,7 +22,7 @@ pub fn init() {
     match crate::memory::PAGE_MAPPER.try_read() {
         Some(mapper) => {
             let root_paddr = mapper.root_paddr().as_usize();
-let ppn = root_paddr / 4096; // Convert address to Physical Page Number
+            let ppn = root_paddr / 4096; // Convert address to Physical Page Number
             unsafe { satp::set(satp::Mode::Sv48, 0, ppn) };
         }
         None => {

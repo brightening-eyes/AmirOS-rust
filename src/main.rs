@@ -12,11 +12,27 @@ pub mod serial;
 
 //crate imports and usages
 use core::panic::PanicInfo;
-use limine::BaseRevision;
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "riscv64",
+    target_arch = "aarch64"
+))]
 use limine::paging::Mode;
-use limine::request::{BootloaderInfoRequest, FirmwareTypeRequest, StackSizeRequest, HhdmRequest, FramebufferRequest, PagingModeRequest, MpRequest, MemoryMapRequest, ExecutableFileRequest, RsdpRequest, SmbiosRequest, EfiSystemTableRequest, EfiMemoryMapRequest, DateAtBootRequest, ExecutableAddressRequest, DeviceTreeBlobRequest, RequestsStartMarker, RequestsEndMarker};
 #[cfg(target_arch = "riscv64")]
 use limine::request::BspHartidRequest;
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "riscv64",
+    target_arch = "aarch64"
+))]
+use limine::request::PagingModeRequest;
+use limine::request::{
+    BootloaderInfoRequest, DateAtBootRequest, DeviceTreeBlobRequest, EfiMemoryMapRequest,
+    EfiSystemTableRequest, ExecutableAddressRequest, ExecutableFileRequest, FirmwareTypeRequest,
+    FramebufferRequest, HhdmRequest, MemoryMapRequest, MpRequest, RequestsEndMarker,
+    RequestsStartMarker, RsdpRequest, SmbiosRequest, StackSizeRequest,
+};
+use limine::BaseRevision;
 
 // boot loader revision
 #[used]
@@ -58,8 +74,7 @@ static PAGING_MODE_REQUEST: PagingModeRequest =
 #[cfg(target_arch = "riscv64")]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest =
-    PagingModeRequest::new().with_mode(Mode::SV48);
+static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(Mode::SV48);
 
 // bootstrap all cores on the system
 #[used]
@@ -129,7 +144,10 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 pub extern "C" fn main() -> ! {
     serial::init();
     log::info!("logger initialized");
-    assert!(BASE_REVISION.is_supported(), "boot loader base revision not supported!.");
+    assert!(
+        BASE_REVISION.is_supported(),
+        "boot loader base revision not supported!."
+    );
     log::info!("base revision supported");
     if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
         log::info!("Booted by: {} v{}", info.name(), info.version());
@@ -145,8 +163,6 @@ pub extern "C" fn main() -> ! {
     log::info!("architecture initialization complete.");
     allocator::init();
     log::info!("allocator initialized.");
-    memory::init_vmm();
-    log::info!("virtual address space initialized and populated");
     if let Some(mp_response) = MP_REQUEST.get_response() {
         // Get the BSP's unique ID in an architecture-agnostic way.
         /*let bsp_id =
@@ -159,6 +175,7 @@ pub extern "C" fn main() -> ! {
         { mp_response.bsp_mpidr() }
         };*/
         log::info!("SMP support detected.");
+        #[allow(unused_variables)]
         for cpu in mp_response.cpus() {
             /*let cpu_id =
             {
@@ -173,7 +190,10 @@ pub extern "C" fn main() -> ! {
             {
             continue;
             }*/
+            #[cfg(not(target_arch = "loongarch64"))]
             cpu.goto_address.write(os_loop);
+            #[cfg(target_arch = "loongarch64")]
+            log::warn!("SMP not yet supported on loongarch64");
         }
     }
     loop {

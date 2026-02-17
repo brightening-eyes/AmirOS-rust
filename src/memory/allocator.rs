@@ -11,7 +11,7 @@ pub struct FrameAllocator {
 unsafe impl Send for FrameAllocator {}
 
 impl FrameAllocator {
-    #[must_use] 
+    #[must_use]
     pub const fn new(hhdm_offset: usize) -> Self {
         Self {
             allocator: FreeList::new(),
@@ -39,8 +39,7 @@ impl FrameAllocator {
         log::info!("freelist memory allocator initialized.");
     }
 
-    pub fn allocate(&mut self, size: usize) -> Result<PageRange, AllocError> {
-        let layout = PageLayout::from_size_align(size, size).unwrap();
+    pub fn allocate(&mut self, layout: PageLayout) -> Result<PageRange, AllocError> {
         self.allocator.allocate(layout)
     }
 

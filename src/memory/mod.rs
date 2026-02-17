@@ -1,15 +1,12 @@
 // memory management
 use crate::arch;
-use crate::memory::vmm::VirtualMemoryArea;
-use core::alloc::Layout;
 use lazy_static::lazy_static;
 use limine::memory_map::{Entry, EntryType};
 use memory_addr::{PhysAddr, VirtAddr};
-use page_table_multiarch::{GenericPTE, MappingFlags, PageSize};
+use page_table_multiarch::{MappingFlags, PageSize};
 use spin::RwLock;
 pub mod allocator;
 pub mod paging;
-pub mod vmm;
 
 pub type PageTable = crate::arch::PageTable;
 pub type PageTableEntry = arch::PageTableEntry;
@@ -23,8 +20,6 @@ lazy_static! {
         let page_table = PageTable::try_new().expect("Failed to create page table");
         RwLock::new(page_table)
     };
-    pub static ref VIRTUAL_ADDRESS_SPACE: RwLock<vmm::VirtualAddressSpace> =
-        RwLock::new(vmm::VirtualAddressSpace::new());
 }
 
 pub static PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
@@ -69,15 +64,15 @@ pub fn init(memmap: &[&Entry]) {
             {
                 let vaddr = VirtAddr::from(pa + hhdm_offset);
                 mapper
+                    .cursor()
                     .map(vaddr, paddr, PageSize::Size1G, flags)
-                    .expect("Failed to map 1G HHDM page")
-                    .flush();
+                    .expect("Failed to map 1G HHDM page");
                 if pa < 0x1_0000_0000 {
                     let identity_vaddr = VirtAddr::from(pa);
                     mapper
+                        .cursor()
                         .map(identity_vaddr, paddr, PageSize::Size1G, flags)
-                        .expect("Failed to identity map 1G low page")
-                        .flush();
+                        .expect("Failed to identity map 1G low page");
                 }
                 pa += PAGE_SIZE_1G;
             } else if pa.is_multiple_of(PAGE_SIZE_2M)
@@ -86,29 +81,29 @@ pub fn init(memmap: &[&Entry]) {
             {
                 let vaddr = VirtAddr::from(pa + hhdm_offset);
                 mapper
+                    .cursor()
                     .map(vaddr, paddr, PageSize::Size2M, flags)
-                    .expect("Failed to map 2M HHDM page")
-                    .flush();
+                    .expect("Failed to map 2M HHDM page");
                 if pa < 0x1_0000_0000 {
                     let identity_vaddr = VirtAddr::from(pa);
                     mapper
+                        .cursor()
                         .map(identity_vaddr, paddr, PageSize::Size2M, flags)
-                        .expect("Failed to identity map 2M low page")
-                        .flush();
+                        .expect("Failed to identity map 2M low page");
                 }
                 pa += PAGE_SIZE_2M;
             } else {
                 let vaddr = VirtAddr::from(pa + hhdm_offset);
                 mapper
+                    .cursor()
                     .map(vaddr, paddr, PageSize::Size4K, flags)
-                    .expect("Failed to map 4K HHDM page")
-                    .flush();
+                    .expect("Failed to map 4K HHDM page");
                 if pa < 0x1_0000_0000 {
                     let identity_vaddr = VirtAddr::from(pa);
                     mapper
+                        .cursor()
                         .map(identity_vaddr, paddr, PageSize::Size4K, flags)
-                        .expect("Failed to identity map 4K low page")
-                        .flush();
+                        .expect("Failed to identity map 4K low page");
                 }
                 pa += PAGE_SIZE;
             }
@@ -126,59 +121,9 @@ pub fn init(memmap: &[&Entry]) {
         let paddr = kernel_paddr + offset;
         let vaddr = kernel_vaddr + offset;
         mapper
+            .cursor()
             .map(vaddr, paddr, PageSize::Size4K, kflags)
-            .expect("Failed to map kernel page")
-            .flush();
+            .expect("Failed to map kernel page");
     }
     log::info!("Kernel sections mapped.");
-}
-
-pub fn init_vmm() {
-    let mapper = PAGE_MAPPER.read();
-    let closure = |level: usize, _index: usize, address: VirtAddr, pte: &PageTableEntry| {
-        let flags = pte.flags();
-        let area = VirtualMemoryArea { flags };
-        let size = match level {
-            1 => PAGE_SIZE_1G,
-            2 => PAGE_SIZE_2M,
-            3 => PAGE_SIZE,
-            _ => 0,
-        };
-        if size > 0 {
-            VIRTUAL_ADDRESS_SPACE.write().allocate(address, size, area);
-        }
-    };
-    mapper
-        .walk(usize::MAX, Some(&closure), None)
-        .expect("could not walk the page mapper");
-}
-
-#[must_use] 
-pub fn kernel_alloc(layout: Layout) -> Option<VirtAddr> {
-    let mut vmas = VIRTUAL_ADDRESS_SPACE.write();
-    let size = layout.size();
-    let flags = MappingFlags::READ | MappingFlags::WRITE;
-    let paddr = PhysAddr::from(
-        FRAME_ALLOCATOR
-            .write()
-            .allocate(size)
-            .expect("Failed to allocate a frame for the heap.")
-            .start(),
-    );
-    let vaddr = vmas
-        .find_free_area(size)
-        .expect("failed to find a virtual address");
-    vmas.allocate(vaddr, size, VirtualMemoryArea { flags });
-    PAGE_MAPPER
-        .write()
-        .map(vaddr, paddr, PageSize::Size4K, flags)
-        .expect("failed to map the page.")
-        .flush();
-    Some(vaddr)
-}
-
-pub fn kernel_dealloc(address: VirtAddr, layout: Layout) {
-    let size = layout.size();
-    VIRTUAL_ADDRESS_SPACE.write().dealloc(address, size);
-    let _ = PAGE_MAPPER.write().unmap(address);
 }

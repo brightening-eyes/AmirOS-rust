@@ -1,6 +1,10 @@
 //! loongarch64-specific architecture code.
 
 use core::arch::asm;
+pub mod paging;
+
+pub type PageTable = paging::PageTable;
+pub type PageTableEntry = paging::PageTableEntry;
 
 /// Halts the CPU.
 ///
