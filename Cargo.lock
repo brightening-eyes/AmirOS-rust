@@ -182,9 +182,9 @@ dependencies = [
 
 [[package]]
 name = "husky-rs"
-version = "0.2.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e19b1f9afa96d1ad62b9709744752f11f1e6d9ff8675ff3f53eac1b95f5d168"
+checksum = "62b00c51c8ea1f7e8d93caaf071948f766eb331cd55cb9871096614c9291642e"
 
 [[package]]
 name = "lazy_static"
