@@ -18,6 +18,12 @@ pub struct GlobalHeap {
 unsafe impl Send for GlobalHeap {}
 unsafe impl Sync for GlobalHeap {}
 
+impl Default for GlobalHeap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalHeap {
     pub const fn new() -> Self {
         Self {

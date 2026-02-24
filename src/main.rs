@@ -12,6 +12,7 @@ pub mod serial;
 
 //crate imports and usages
 use core::panic::PanicInfo;
+use limine::BaseRevision;
 #[cfg(any(
     target_arch = "x86_64",
     target_arch = "riscv64",
@@ -32,7 +33,6 @@ use limine::request::{
     FramebufferRequest, HhdmRequest, MemoryMapRequest, MpRequest, RequestsEndMarker,
     RequestsStartMarker, RsdpRequest, SmbiosRequest, StackSizeRequest,
 };
-use limine::BaseRevision;
 
 // boot loader revision
 #[used]

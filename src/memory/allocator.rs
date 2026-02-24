@@ -43,6 +43,9 @@ impl FrameAllocator {
         self.allocator.allocate(layout)
     }
 
+    /// # Safety
+    /// The caller must ensure that `addr` represents a valid page range
+    /// that was previously allocated by this allocator.
     pub unsafe fn deallocate(&mut self, addr: PageRange) {
         unsafe { self.allocator.deallocate(addr).ok() };
     }

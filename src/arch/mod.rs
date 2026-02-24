@@ -3,6 +3,8 @@
 //! It is responsible for initializing the CPU, handling interrupts, and other
 //! low-level, architecture-dependent tasks.
 
+#![allow(clippy::module_inception)]
+
 // Use conditional compilation to include the correct submodule.
 #[cfg(target_arch = "x86_64")]
 #[path = "x86_64/mod.rs"]
