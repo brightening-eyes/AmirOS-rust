@@ -1,17 +1,16 @@
 use core::alloc::{GlobalAlloc, Layout};
-use core::cell::UnsafeCell;
-use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicBool, Ordering};
 use free_list::PageLayout;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use slab_allocator_rs::Heap as SlabHeap;
+use spin::Mutex;
 
 const PAGE_SIZE: usize = 4096;
 
 pub struct GlobalHeap {
-    heap: UnsafeCell<MaybeUninit<SlabHeap>>,
+    heap: Mutex<Option<SlabHeap>>,
     initialized: AtomicBool,
 }
 
@@ -27,7 +26,7 @@ impl Default for GlobalHeap {
 impl GlobalHeap {
     pub const fn new() -> Self {
         Self {
-            heap: UnsafeCell::new(MaybeUninit::uninit()),
+            heap: Mutex::new(None),
             initialized: AtomicBool::new(false),
         }
     }
@@ -36,13 +35,7 @@ impl GlobalHeap {
         if self.initialized.load(Ordering::Relaxed) {
             return;
         }
-
-        unsafe {
-            core::ptr::write(
-                self.heap.get(),
-                MaybeUninit::new(SlabHeap::new(heap_start, heap_size)),
-            );
-        }
+        *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
         self.initialized.store(true, Ordering::Release);
     }
 
@@ -105,17 +98,20 @@ unsafe impl GlobalAlloc for GlobalHeap {
             return core::ptr::null_mut();
         }
 
-        let heap = unsafe { (*self.heap.get()).assume_init_mut() };
-        let result = heap.allocate(layout);
-        let nptr = match result {
-            Ok(p) => p,
-            Err(()) => return core::ptr::null_mut(),
-        };
+        if let Some(ref mut heap) = *self.heap.lock() {
+            let result = heap.allocate(layout);
+            let nptr = match result {
+                Ok(p) => p,
+                Err(()) => return core::ptr::null_mut(),
+            };
 
-        let ptr = nptr.as_ptr();
+            let ptr = nptr.as_ptr();
 
-        if self.ensure_range_mapped(ptr, layout.size()) {
-            ptr
+            if self.ensure_range_mapped(ptr, layout.size()) {
+                ptr
+            } else {
+                core::ptr::null_mut()
+            }
         } else {
             core::ptr::null_mut()
         }
@@ -157,9 +153,9 @@ unsafe impl GlobalAlloc for GlobalHeap {
             page += PAGE_SIZE;
         }
 
-        if let Some(nptr) = NonNull::new(ptr) {
-            let heap = unsafe { (*self.heap.get()).assume_init_mut() };
-            unsafe { heap.deallocate(nptr, layout) };
-        }
+        if let Some(nptr) = NonNull::new(ptr)
+            && let Some(ref mut heap) = *self.heap.lock() {
+                unsafe { heap.deallocate(nptr, layout) };
+            }
     }
 }

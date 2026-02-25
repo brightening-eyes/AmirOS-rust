@@ -10,6 +10,8 @@ pub mod heap;
 pub mod memory;
 pub mod serial;
 
+//declare externs
+extern crate alloc;
 //crate imports and usages
 use core::panic::PanicInfo;
 use limine::BaseRevision;
@@ -163,6 +165,9 @@ pub extern "C" fn main() -> ! {
     log::info!("architecture initialization complete.");
     allocator::init();
     log::info!("allocator initialized.");
+    let tmp = alloc::boxed::Box::new(42);
+    log::info!("{}", tmp);
+
     if let Some(mp_response) = MP_REQUEST.get_response() {
         // Get the BSP's unique ID in an architecture-agnostic way.
         /*let bsp_id =
