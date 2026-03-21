@@ -19,10 +19,10 @@ impl FrameAllocator {
         }
     }
 
-/// initialization code for `frame allocator`.
-/// initializes the free memory based on the provided memory information from the boot loader
-/// # Panics
-/// when the free list allocator cant grab the memory
+    /// initialization code for `frame allocator`.
+    /// initializes the free memory based on the provided memory information from the boot loader
+    /// # Panics
+    /// when the free list allocator cant grab the memory
     pub fn init(&mut self, memmap: &[&Entry]) {
         memmap
             .iter()
@@ -43,9 +43,9 @@ impl FrameAllocator {
         log::info!("freelist memory allocator initialized.");
     }
 
-/// allocates and returns memory based on the available free memory
-/// # Errors
-/// when no memory is available on the free list to allocate, we will get an allocation error.
+    /// allocates and returns memory based on the available free memory
+    /// # Errors
+    /// when no memory is available on the free list to allocate, we will get an allocation error.
     pub fn allocate(&mut self, layout: PageLayout) -> Result<PageRange, AllocError> {
         self.allocator.allocate(layout)
     }

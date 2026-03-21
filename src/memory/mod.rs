@@ -13,7 +13,8 @@ pub type PageTableEntry = arch::PageTableEntry;
 
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
-        let hhdm_offset = usize::try_from(crate::HHDM_REQUEST.get_response().unwrap().offset()).unwrap();
+        let hhdm_offset =
+            usize::try_from(crate::HHDM_REQUEST.get_response().unwrap().offset()).unwrap();
         RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
     };
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
@@ -115,8 +116,10 @@ pub fn init(memmap: &[&Entry]) {
     log::info!("HHDM and low-memory identity mapping complete.");
 
     // Second, map the kernel itself at its higher-half virtual address.
-    let kernel_physical_address = PhysAddr::from(usize::try_from(kernel_address.physical_base()).unwrap());
-    let kernel_virtual_address = VirtAddr::from(usize::try_from(kernel_address.virtual_base()).unwrap());
+    let kernel_physical_address =
+        PhysAddr::from(usize::try_from(kernel_address.physical_base()).unwrap());
+    let kernel_virtual_address =
+        VirtAddr::from(usize::try_from(kernel_address.virtual_base()).unwrap());
     let kernel_size = (usize::try_from(kernel_file.size()).unwrap() + crate::memory::PAGE_SIZE - 1)
         & !(crate::memory::PAGE_SIZE - 1);
     let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;

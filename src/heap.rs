@@ -10,44 +10,50 @@ use spin::Mutex;
 const PAGE_SIZE: usize = 4096;
 
 fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
-        let start_page = (start as usize) & !(PAGE_SIZE - 1);
-        let end_page = ((start as usize + size - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
+    let start_page = (start as usize) & !(PAGE_SIZE - 1);
+    let end_page = ((start as usize + size - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
 
-        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else { return false };
-        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else { return false };
-        let mut cursor = mapper.cursor();
-        let Ok(layout) = PageLayout::from_size_align(PAGE_SIZE, PAGE_SIZE) else { return false };
-        let mut page = start_page;
-        while page < end_page {
-            let page_vaddr = VirtAddr::from(page);
+    let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
+        return false;
+    };
+    let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
+        return false;
+    };
+    let mut cursor = mapper.cursor();
+    let Ok(layout) = PageLayout::from_size_align(PAGE_SIZE, PAGE_SIZE) else {
+        return false;
+    };
+    let mut page = start_page;
+    while page < end_page {
+        let page_vaddr = VirtAddr::from(page);
 
-            if cursor.query(page_vaddr).is_ok() {
-                page += PAGE_SIZE;
-                continue;
-            }
-
-            let paddr = match frame_alloc.allocate(layout) {
-                Ok(range) => PhysAddr::from(range.start()),
-                Err(_) => return false,
-            };
-
-            if cursor
-                .map(
-                    page_vaddr,
-                    paddr,
-                    PageSize::Size4K,
-                    MappingFlags::READ | MappingFlags::WRITE,
-                )
-                .is_err()
-            {
-                return false;
-            }
-
+        if cursor.query(page_vaddr).is_ok() {
             page += PAGE_SIZE;
+            continue;
         }
 
-        true
+        let paddr = match frame_alloc.allocate(layout) {
+            Ok(range) => PhysAddr::from(range.start()),
+            Err(_) => return false,
+        };
+
+        if cursor
+            .map(
+                page_vaddr,
+                paddr,
+                PageSize::Size4K,
+                MappingFlags::READ | MappingFlags::WRITE,
+            )
+            .is_err()
+        {
+            return false;
+        }
+
+        page += PAGE_SIZE;
     }
+
+    true
+}
 
 pub struct GlobalHeap {
     heap: Mutex<Option<SlabHeap>>,
@@ -64,7 +70,7 @@ impl Default for GlobalHeap {
 }
 
 impl GlobalHeap {
-    #[must_use] 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             heap: Mutex::new(None),
@@ -89,7 +95,9 @@ unsafe impl GlobalAlloc for GlobalHeap {
 
         if let Some(ref mut heap) = *self.heap.lock() {
             let result = heap.allocate(layout);
-            let Ok(nptr) = result else { return core::ptr::null_mut() };
+            let Ok(nptr) = result else {
+                return core::ptr::null_mut();
+            };
 
             let ptr = nptr.as_ptr();
 
@@ -110,8 +118,12 @@ unsafe impl GlobalAlloc for GlobalHeap {
 
         let start_page = (ptr as usize) & !(PAGE_SIZE - 1);
         let end_page = ((ptr as usize + layout.size() - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
-        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else { return };
-        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else { return };
+        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
+            return;
+        };
+        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
+            return;
+        };
         let mut cursor = mapper.cursor();
         let mut page = start_page;
         while page < end_page {
@@ -128,8 +140,9 @@ unsafe impl GlobalAlloc for GlobalHeap {
         }
 
         if let Some(nptr) = NonNull::new(ptr)
-            && let Some(ref mut heap) = *self.heap.lock() {
-                unsafe { heap.deallocate(nptr, layout) };
-            }
+            && let Some(ref mut heap) = *self.heap.lock()
+        {
+            unsafe { heap.deallocate(nptr, layout) };
+        }
     }
 }
