@@ -19,13 +19,17 @@ impl FrameAllocator {
         }
     }
 
+/// initialization code for `frame allocator`.
+/// initializes the free memory based on the provided memory information from the boot loader
+/// # Panics
+/// when the free list allocator cant grab the memory
     pub fn init(&mut self, memmap: &[&Entry]) {
         memmap
             .iter()
             .filter(|region| region.entry_type == EntryType::USABLE)
             .map(|region| {
-                let start = region.base as usize;
-                let end = start + region.length as usize;
+                let start = usize::try_from(region.base).unwrap();
+                let end = start + usize::try_from(region.length).unwrap();
                 (start..end).try_into()
             })
             .filter_map(Result::ok)
@@ -39,14 +43,14 @@ impl FrameAllocator {
         log::info!("freelist memory allocator initialized.");
     }
 
+/// allocates and returns memory based on the available free memory
+/// # Errors
+/// when no memory is available on the free list to allocate, we will get an allocation error.
     pub fn allocate(&mut self, layout: PageLayout) -> Result<PageRange, AllocError> {
         self.allocator.allocate(layout)
     }
 
-    /// # Safety
-    /// The caller must ensure that `addr` represents a valid page range
-    /// that was previously allocated by this allocator.
-    pub unsafe fn deallocate(&mut self, addr: PageRange) {
+    pub fn deallocate(&mut self, addr: PageRange) {
         unsafe { self.allocator.deallocate(addr).ok() };
     }
 }

@@ -30,7 +30,7 @@ impl PagingHandler for AmirOSPagingHandler {
             let vaddr_start = paddr.as_usize();
             let vaddr_end = vaddr_start + layout.size();
             if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
-                unsafe { allocator.deallocate(page_range) };
+                allocator.deallocate(page_range);
             }
         }
     }

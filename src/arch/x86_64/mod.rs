@@ -19,7 +19,10 @@ pub fn holt() {
     }
 }
 
-/// Initializes x86_64-specific features.
+/// Initialization code for `x86_64`.
+/// this function performs the initialization code for the processor.
+/// # Panics
+/// when initialization fails, we will panic here as the continuation of everything is impossible.
 pub fn init() {
     instructions::interrupts::disable();
     gdt::init();
@@ -31,7 +34,7 @@ pub fn init() {
             let frame = x86_64::structures::paging::PhysFrame::from_start_address(
                 x86_64::PhysAddr::new(root_paddr.as_usize() as u64),
             )
-            .unwrap();
+            .expect("could not load the memory into provided paging structure.");
             // This is the point of no return. After this instruction, the CPU
             // uses our new page table for all memory access.
             unsafe { Cr3::write(frame, Cr3Flags::empty()) };

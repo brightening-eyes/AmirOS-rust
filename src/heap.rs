@@ -9,56 +9,14 @@ use spin::Mutex;
 
 const PAGE_SIZE: usize = 4096;
 
-pub struct GlobalHeap {
-    heap: Mutex<Option<SlabHeap>>,
-    initialized: AtomicBool,
-}
-
-unsafe impl Send for GlobalHeap {}
-unsafe impl Sync for GlobalHeap {}
-
-impl Default for GlobalHeap {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GlobalHeap {
-    pub const fn new() -> Self {
-        Self {
-            heap: Mutex::new(None),
-            initialized: AtomicBool::new(false),
-        }
-    }
-
-    pub fn init(&self, heap_start: usize, heap_size: usize) {
-        if self.initialized.load(Ordering::Relaxed) {
-            return;
-        }
-        *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
-        self.initialized.store(true, Ordering::Release);
-    }
-
-    fn ensure_range_mapped(&self, start: *mut u8, size: usize) -> bool {
+fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
         let start_page = (start as usize) & !(PAGE_SIZE - 1);
         let end_page = ((start as usize + size - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
 
-        let mut mapper = match crate::memory::PAGE_MAPPER.try_write() {
-            Some(m) => m,
-            None => return false,
-        };
-
-        let mut frame_alloc = match crate::memory::FRAME_ALLOCATOR.try_write() {
-            Some(f) => f,
-            None => return false,
-        };
-
+        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else { return false };
+        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else { return false };
         let mut cursor = mapper.cursor();
-        let layout = match PageLayout::from_size_align(PAGE_SIZE, PAGE_SIZE) {
-            Ok(l) => l,
-            Err(_) => return false,
-        };
-
+        let Ok(layout) = PageLayout::from_size_align(PAGE_SIZE, PAGE_SIZE) else { return false };
         let mut page = start_page;
         while page < end_page {
             let page_vaddr = VirtAddr::from(page);
@@ -90,6 +48,37 @@ impl GlobalHeap {
 
         true
     }
+
+pub struct GlobalHeap {
+    heap: Mutex<Option<SlabHeap>>,
+    initialized: AtomicBool,
+}
+
+unsafe impl Send for GlobalHeap {}
+unsafe impl Sync for GlobalHeap {}
+
+impl Default for GlobalHeap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GlobalHeap {
+    #[must_use] 
+    pub const fn new() -> Self {
+        Self {
+            heap: Mutex::new(None),
+            initialized: AtomicBool::new(false),
+        }
+    }
+
+    pub fn init(&self, heap_start: usize, heap_size: usize) {
+        if self.initialized.load(Ordering::Relaxed) {
+            return;
+        }
+        *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
+        self.initialized.store(true, Ordering::Release);
+    }
 }
 
 unsafe impl GlobalAlloc for GlobalHeap {
@@ -100,14 +89,11 @@ unsafe impl GlobalAlloc for GlobalHeap {
 
         if let Some(ref mut heap) = *self.heap.lock() {
             let result = heap.allocate(layout);
-            let nptr = match result {
-                Ok(p) => p,
-                Err(()) => return core::ptr::null_mut(),
-            };
+            let Ok(nptr) = result else { return core::ptr::null_mut() };
 
             let ptr = nptr.as_ptr();
 
-            if self.ensure_range_mapped(ptr, layout.size()) {
+            if ensure_range_mapped(ptr, layout.size()) {
                 ptr
             } else {
                 core::ptr::null_mut()
@@ -124,19 +110,9 @@ unsafe impl GlobalAlloc for GlobalHeap {
 
         let start_page = (ptr as usize) & !(PAGE_SIZE - 1);
         let end_page = ((ptr as usize + layout.size() - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
-
-        let mut mapper = match crate::memory::PAGE_MAPPER.try_write() {
-            Some(m) => m,
-            None => return,
-        };
-
-        let mut frame_alloc = match crate::memory::FRAME_ALLOCATOR.try_write() {
-            Some(f) => f,
-            None => return,
-        };
-
+        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else { return };
+        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else { return };
         let mut cursor = mapper.cursor();
-
         let mut page = start_page;
         while page < end_page {
             let page_vaddr = VirtAddr::from(page);
@@ -144,9 +120,7 @@ unsafe impl GlobalAlloc for GlobalHeap {
             if let Ok((paddr, _, _)) = cursor.unmap(page_vaddr) {
                 let range = paddr.as_usize()..paddr.as_usize() + PAGE_SIZE;
                 if let Ok(page_range) = range.try_into() {
-                    unsafe {
-                        frame_alloc.deallocate(page_range);
-                    }
+                    frame_alloc.deallocate(page_range);
                 }
             }
 

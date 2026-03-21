@@ -142,6 +142,9 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[unsafe(link_section = ".limine_requests_end")]
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 
+/// kernel main function
+/// # Panics
+/// if anything fails in the kernel, we will panic and halt
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> ! {
     serial::init();
@@ -166,7 +169,7 @@ pub extern "C" fn main() -> ! {
     allocator::init();
     log::info!("allocator initialized.");
     let tmp = alloc::boxed::Box::new(42);
-    log::info!("{}", tmp);
+    log::info!("{tmp}");
 
     if let Some(mp_response) = MP_REQUEST.get_response() {
         // Get the BSP's unique ID in an architecture-agnostic way.

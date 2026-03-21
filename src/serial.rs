@@ -30,7 +30,7 @@ lazy_static! {
 // Implement the `fmt::Write` trait for our global SERIAL_WRITER.
 // This allows us to use it with Rust's formatting macros like `println!` and `write!`.
 #[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
+pub fn print(args: fmt::Arguments) {
     // Add a guard to prevent deadlocks if a panic occurs while the lock is held.
     if let Some(mut writer) = SERIAL_WRITER.try_lock() {
         writer.write_fmt(args).expect("Printing to serial failed");
@@ -41,7 +41,7 @@ pub fn _print(args: fmt::Arguments) {
 #[macro_export]
 macro_rules! serial_print {
     ($($arg:tt)*) => {
-        $crate::serial::_print(format_args!($($arg)*));
+        $crate::serial::print(format_args!($($arg)*));
     };
 }
 
@@ -55,6 +55,8 @@ macro_rules! serial_println {
 }
 
 /// Initializes the logger, allowing the `log` crate macros to work.
+/// # Panics
+/// when initialization fails
 pub fn init() {
     // Set our serial logger as the global logger.
     // We set the max level to Info, meaning Trace and Debug messages will be ignored.
