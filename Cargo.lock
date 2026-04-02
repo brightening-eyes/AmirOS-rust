@@ -48,9 +48,9 @@ dependencies = [
  "local-waker",
  "log",
  "meminterval",
- "memory_addr",
+ "memory_addr 0.4.1",
  "object",
- "page_table_entry",
+ "page_table_entry 0.6.1",
  "page_table_multiarch",
  "riscv",
  "slab_allocator_rs",
@@ -247,6 +247,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1f0625c50adb5f6aaf47f05cae3c4dbc13a74c659241b06c4576f3d7e1da940"
 
 [[package]]
+name = "memory_addr"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f941093c7509897c695772b0c905ed9696b004533db993acc1b17cc28e2e7f6d"
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -272,20 +278,32 @@ checksum = "8e9a63b9b86d32f64c3874a90936939281d045ef1751d0aca3d82d5e4e06b2ef"
 dependencies = [
  "aarch64-cpu",
  "bitflags 2.11.0",
- "memory_addr",
+ "memory_addr 0.4.1",
+ "x86_64",
+]
+
+[[package]]
+name = "page_table_entry"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8140d7e931f687db13a17dcae10ca3daa0517815ba362f8199489fe5c3414efb"
+dependencies = [
+ "aarch64-cpu",
+ "bitflags 2.11.0",
+ "memory_addr 0.6.1",
  "x86_64",
 ]
 
 [[package]]
 name = "page_table_multiarch"
-version = "0.6.1"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42c5b75d5d9bdbee44c827b0dd2766fa3d478a76b9c6735419228089d1b24536"
+checksum = "63ba409e2c079d8204ab7ed238b04779192412eca0433222131b17858d37cf8f"
 dependencies = [
  "arrayvec",
  "log",
- "memory_addr",
- "page_table_entry",
+ "memory_addr 0.6.1",
+ "page_table_entry 0.8.1",
  "riscv",
  "x86",
 ]
