@@ -82,6 +82,15 @@ impl GlobalHeap {
         if self.initialized.load(Ordering::Relaxed) {
             return;
         }
+
+        // Pre-map the entire heap region before initializing the slab allocator,
+        // since SlabHeap::new() writes intrusive free-list metadata into the
+        // heap memory range. Without pre-mapping, those writes would fault.
+        let heap_ptr = heap_start as *mut u8;
+        if !ensure_range_mapped(heap_ptr, heap_size) {
+            panic!("heap: failed to pre-map {} bytes at {:#x}", heap_size, heap_start);
+        }
+
         *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
         self.initialized.store(true, Ordering::Release);
     }
