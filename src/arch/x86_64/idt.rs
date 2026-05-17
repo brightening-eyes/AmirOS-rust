@@ -36,7 +36,7 @@ extern "x86-interrupt" fn page_fault_handler(
     // Demand-page the heap region: allocate a physical frame and map it on
     // the first access, so that SlabHeap::new() and subsequent allocations
     // can proceed without pre-allocating physical memory for the whole heap.
-    if fault_addr >= HEAP_START && fault_addr < HEAP_START + HEAP_SIZE {
+    if (HEAP_START..HEAP_START + HEAP_SIZE).contains(&fault_addr) {
         let page_addr = fault_addr & !0xFFF;
         let vaddr = VirtAddr::from(page_addr);
 
