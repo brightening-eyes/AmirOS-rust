@@ -13,8 +13,7 @@ pub type PageTableEntry = arch::PageTableEntry;
 
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
-        let hhdm_offset =
-            usize::try_from(crate::HHDM_REQUEST.response().unwrap().offset).unwrap();
+        let hhdm_offset = usize::try_from(crate::HHDM_REQUEST.response().unwrap().offset).unwrap();
         RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
     };
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
@@ -120,8 +119,8 @@ pub fn init(memmap: &[&Entry]) {
         PhysAddr::from(usize::try_from(kernel_address.physical_base).unwrap());
     let kernel_virtual_address =
         VirtAddr::from(usize::try_from(kernel_address.virtual_base).unwrap());
-    let kernel_size = (kernel_file.data().len() + crate::memory::PAGE_SIZE - 1)
-        & !(crate::memory::PAGE_SIZE - 1);
+    let kernel_size =
+        (kernel_file.data().len() + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
     let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
     for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE) {
         let paddr = kernel_physical_address + offset;

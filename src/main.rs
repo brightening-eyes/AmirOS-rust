@@ -30,10 +30,9 @@ use limine::request::BspHartidRequest;
 ))]
 use limine::request::PagingModeRequest;
 use limine::request::{
-    BootloaderInfoRequest, DateAtBootRequest, DtbRequest, EfiMemmapRequest,
-    EfiRequest, ExecutableAddressRequest, ExecutableFileRequest, FirmwareTypeRequest,
-    FramebufferRequest, HhdmRequest, MemmapRequest, MpRequest, RsdpRequest, SmbiosRequest,
-    StackSizeRequest,
+    BootloaderInfoRequest, DateAtBootRequest, DtbRequest, EfiMemmapRequest, EfiRequest,
+    ExecutableAddressRequest, ExecutableFileRequest, FirmwareTypeRequest, FramebufferRequest,
+    HhdmRequest, MemmapRequest, MpRequest, RsdpRequest, SmbiosRequest, StackSizeRequest,
 };
 use limine::{RequestsEndMarker, RequestsStartMarker};
 
@@ -77,7 +76,8 @@ static PAGING_MODE_REQUEST: PagingModeRequest =
 #[cfg(target_arch = "riscv64")]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new_exact(PagingMode::RISCV_SV48);
+static PAGING_MODE_REQUEST: PagingModeRequest =
+    PagingModeRequest::new_exact(PagingMode::RISCV_SV48);
 
 // bootstrap all cores on the system
 #[used]
