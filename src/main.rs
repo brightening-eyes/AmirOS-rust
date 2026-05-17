@@ -20,7 +20,7 @@ use limine::BaseRevision;
     target_arch = "riscv64",
     target_arch = "aarch64"
 ))]
-use limine::paging::Mode;
+use limine::paging::PagingMode;
 #[cfg(target_arch = "riscv64")]
 use limine::request::BspHartidRequest;
 #[cfg(any(
@@ -30,11 +30,12 @@ use limine::request::BspHartidRequest;
 ))]
 use limine::request::PagingModeRequest;
 use limine::request::{
-    BootloaderInfoRequest, DateAtBootRequest, DeviceTreeBlobRequest, EfiMemoryMapRequest,
-    EfiSystemTableRequest, ExecutableAddressRequest, ExecutableFileRequest, FirmwareTypeRequest,
-    FramebufferRequest, HhdmRequest, MemoryMapRequest, MpRequest, RequestsEndMarker,
-    RequestsStartMarker, RsdpRequest, SmbiosRequest, StackSizeRequest,
+    BootloaderInfoRequest, DateAtBootRequest, DtbRequest, EfiMemmapRequest,
+    EfiRequest, ExecutableAddressRequest, ExecutableFileRequest, FirmwareTypeRequest,
+    FramebufferRequest, HhdmRequest, MemmapRequest, MpRequest, RsdpRequest, SmbiosRequest,
+    StackSizeRequest,
 };
+use limine::{RequestsEndMarker, RequestsStartMarker};
 
 // boot loader revision
 #[used]
@@ -54,7 +55,7 @@ static FIRMWARE_TYPE_REQUEST: FirmwareTypeRequest = FirmwareTypeRequest::new();
 // set stack size to 128 kb (will be back to it later)
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static STACK_SIZE_REQUEST: StackSizeRequest = StackSizeRequest::new().with_size(128 * 1024);
+static STACK_SIZE_REQUEST: StackSizeRequest = StackSizeRequest::new(128 * 1024);
 
 // hier half direct mapping
 #[used]
@@ -71,22 +72,22 @@ static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 static PAGING_MODE_REQUEST: PagingModeRequest =
-    PagingModeRequest::new().with_mode(Mode::FOUR_LEVEL);
+    PagingModeRequest::new_exact(PagingMode::X86_64_4LVL);
 
 #[cfg(target_arch = "riscv64")]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new().with_mode(Mode::SV48);
+static PAGING_MODE_REQUEST: PagingModeRequest = PagingModeRequest::new_exact(PagingMode::RISCV_SV48);
 
 // bootstrap all cores on the system
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static MP_REQUEST: MpRequest = MpRequest::new();
+static MP_REQUEST: MpRequest = MpRequest::new(0);
 
 // memory maps
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static MEMORY_MAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
+static MEMORY_MAP_REQUEST: MemmapRequest = MemmapRequest::new();
 
 // kernel information
 #[used]
@@ -106,12 +107,12 @@ static SMBIOS_REQUEST: SmbiosRequest = SmbiosRequest::new();
 // uefi table
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static EFI_SYSTEM_TABLE_REQUEST: EfiSystemTableRequest = EfiSystemTableRequest::new();
+static EFI_SYSTEM_TABLE_REQUEST: EfiRequest = EfiRequest::new();
 
 // uefi memory map
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static EFI_MEMORY_MAP_REQUEST: EfiMemoryMapRequest = EfiMemoryMapRequest::new();
+static EFI_MEMORY_MAP_REQUEST: EfiMemmapRequest = EfiMemmapRequest::new();
 
 // boot time
 #[used]
@@ -126,7 +127,7 @@ static EXECUTABLE_ADDRESS_REQUEST: ExecutableAddressRequest = ExecutableAddressR
 // device tree blob
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static DEVICE_TREE_BLOB_REQUEST: DeviceTreeBlobRequest = DeviceTreeBlobRequest::new();
+static DEVICE_TREE_BLOB_REQUEST: DtbRequest = DtbRequest::new();
 
 // bsp Hart ID for riscv64
 #[cfg(target_arch = "riscv64")]
@@ -154,15 +155,15 @@ pub extern "C" fn main() -> ! {
         "boot loader base revision not supported!."
     );
     log::info!("base revision supported");
-    if let Some(info) = BOOTLOADER_INFO_REQUEST.get_response() {
+    if let Some(info) = BOOTLOADER_INFO_REQUEST.response() {
         log::info!("Booted by: {} v{}", info.name(), info.version());
     } else {
         panic!("boot loader information not available.");
     }
-    if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.get_response() {
+    if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.response() {
         log::info!("we have the frame buffer, we'll do for it later");
     }
-    memory::init(MEMORY_MAP_REQUEST.get_response().unwrap().entries());
+    memory::init(MEMORY_MAP_REQUEST.response().unwrap().entries());
     log::info!("memory manager initialized.");
     arch::init();
     log::info!("architecture initialization complete.");
@@ -171,7 +172,7 @@ pub extern "C" fn main() -> ! {
     let tmp = alloc::boxed::Box::new(42);
     log::info!("{tmp}");
 
-    if let Some(mp_response) = MP_REQUEST.get_response() {
+    if let Some(mp_response) = MP_REQUEST.response() {
         // Get the BSP's unique ID in an architecture-agnostic way.
         /*let bsp_id =
         {
@@ -199,7 +200,7 @@ pub extern "C" fn main() -> ! {
             continue;
             }*/
             #[cfg(not(target_arch = "loongarch64"))]
-            cpu.goto_address.write(os_loop);
+            cpu.bootstrap(os_loop, 0);
             #[cfg(target_arch = "loongarch64")]
             log::warn!("SMP not yet supported on loongarch64");
         }
@@ -209,7 +210,10 @@ pub extern "C" fn main() -> ! {
     }
 }
 
-pub extern "C" fn os_loop(_cpu: &limine::mp::Cpu) -> ! {
+/// # Safety
+/// Called by the bootloader on AP startup via `MpInfo::bootstrap`.
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn os_loop(_cpu: &limine::mp::MpInfo) -> ! {
     log::info!("processor started.");
     loop {
         arch::holt();

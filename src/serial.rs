@@ -2,27 +2,50 @@ use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use uart_16550::{Config, Uart16550Tty};
+
+#[cfg(target_arch = "x86_64")]
+type SerialPort = Uart16550Tty<uart_16550::backend::PioBackend>;
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-use uart_16550::MmioSerialPort as SerialPort;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use uart_16550::SerialPort;
+type SerialPort = Uart16550Tty<uart_16550::backend::MmioBackend>;
+
 lazy_static! {
     pub static ref SERIAL_WRITER: Mutex<SerialPort> = {
-        // We use conditional compilation to select the correct initialization
-        // method and address based on the target architecture.
         #[cfg(target_arch = "x86_64")]
-        let mut serial_port = unsafe { SerialPort::new(0x3F8) };
+        let serial_port = unsafe {
+            Uart16550Tty::new_port(0x3F8, Config::default()).expect("failed to init serial")
+        };
 
         #[cfg(target_arch = "riscv64")]
-        let mut serial_port = unsafe { SerialPort::new(0x10000000) };
+        let serial_port = unsafe {
+            Uart16550Tty::new_mmio(
+                core::ptr::NonNull::new(0x10000000 as *mut u8).unwrap(),
+                1,
+                Config::default(),
+            )
+            .expect("failed to init serial")
+        };
 
         #[cfg(target_arch = "aarch64")]
-        let mut serial_port = unsafe { SerialPort::new(0x09000000) };
+        let serial_port = unsafe {
+            Uart16550Tty::new_mmio(
+                core::ptr::NonNull::new(0x09000000 as *mut u8).unwrap(),
+                1,
+                Config::default(),
+            )
+            .expect("failed to init serial")
+        };
 
         #[cfg(target_arch = "loongarch64")]
-        let mut serial_port = unsafe { SerialPort::new(0x1fe001e0) };
+        let serial_port = unsafe {
+            Uart16550Tty::new_mmio(
+                core::ptr::NonNull::new(0x1fe001e0 as *mut u8).unwrap(),
+                1,
+                Config::default(),
+            )
+            .expect("failed to init serial")
+        };
 
-        serial_port.init();
         Mutex::new(serial_port)
     };
 }
@@ -31,10 +54,8 @@ lazy_static! {
 // This allows us to use it with Rust's formatting macros like `println!` and `write!`.
 #[doc(hidden)]
 pub fn print(args: fmt::Arguments) {
-    // Add a guard to prevent deadlocks if a panic occurs while the lock is held.
-    if let Some(mut writer) = SERIAL_WRITER.try_lock() {
-        writer.write_fmt(args).expect("Printing to serial failed");
-    }
+    let mut writer = SERIAL_WRITER.lock();
+    writer.write_fmt(args).expect("Printing to serial failed");
 }
 
 /// Prints to the host through the serial interface.

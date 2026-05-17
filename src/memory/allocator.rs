@@ -1,6 +1,6 @@
 // allocator based on free list
 use free_list::{AllocError, FreeList, PageLayout, PageRange};
-use limine::memory_map::{Entry, EntryType};
+use limine::memmap::{Entry, MEMMAP_USABLE};
 
 pub struct FrameAllocator {
     allocator: FreeList<16>,
@@ -26,7 +26,7 @@ impl FrameAllocator {
     pub fn init(&mut self, memmap: &[&Entry]) {
         memmap
             .iter()
-            .filter(|region| region.entry_type == EntryType::USABLE)
+            .filter(|region| region.type_ == MEMMAP_USABLE)
             .map(|region| {
                 let start = usize::try_from(region.base).unwrap();
                 let end = start + usize::try_from(region.length).unwrap();

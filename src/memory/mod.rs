@@ -1,7 +1,7 @@
 // memory management
 use crate::arch;
 use lazy_static::lazy_static;
-use limine::memory_map::{Entry, EntryType};
+use limine::memmap::{Entry, MEMMAP_BAD_MEMORY};
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use spin::RwLock;
@@ -14,7 +14,7 @@ pub type PageTableEntry = arch::PageTableEntry;
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
         let hhdm_offset =
-            usize::try_from(crate::HHDM_REQUEST.get_response().unwrap().offset()).unwrap();
+            usize::try_from(crate::HHDM_REQUEST.response().unwrap().offset).unwrap();
         RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
     };
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
@@ -35,11 +35,11 @@ pub fn init(memmap: &[&Entry]) {
     FRAME_ALLOCATOR.write().init(memmap);
     // Get the necessary information from the bootloader.
     let hhdm_offset = FRAME_ALLOCATOR.read().hhdm_offset;
-    let kernel_address = crate::EXECUTABLE_ADDRESS_REQUEST.get_response().unwrap();
+    let kernel_address = crate::EXECUTABLE_ADDRESS_REQUEST.response().unwrap();
     let kernel_file = crate::EXECUTABLE_FILE_REQUEST
-        .get_response()
+        .response()
         .unwrap()
-        .file();
+        .executable_file();
     let mut mapper = PAGE_MAPPER.write();
     let flags = MappingFlags::READ | MappingFlags::WRITE;
 
@@ -50,7 +50,7 @@ pub fn init(memmap: &[&Entry]) {
     for entry in memmap {
         // We map all memory types except for bad memory. This includes the kernel,
         // modules, and bootloader-reclaimable memory.
-        if matches!(entry.entry_type, EntryType::BAD_MEMORY) {
+        if matches!(entry.type_, MEMMAP_BAD_MEMORY) {
             continue;
         }
         let start_pa = usize::try_from(entry.base).unwrap();
@@ -117,10 +117,10 @@ pub fn init(memmap: &[&Entry]) {
 
     // Second, map the kernel itself at its higher-half virtual address.
     let kernel_physical_address =
-        PhysAddr::from(usize::try_from(kernel_address.physical_base()).unwrap());
+        PhysAddr::from(usize::try_from(kernel_address.physical_base).unwrap());
     let kernel_virtual_address =
-        VirtAddr::from(usize::try_from(kernel_address.virtual_base()).unwrap());
-    let kernel_size = (usize::try_from(kernel_file.size()).unwrap() + crate::memory::PAGE_SIZE - 1)
+        VirtAddr::from(usize::try_from(kernel_address.virtual_base).unwrap());
+    let kernel_size = (kernel_file.data().len() + crate::memory::PAGE_SIZE - 1)
         & !(crate::memory::PAGE_SIZE - 1);
     let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
     for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE) {
