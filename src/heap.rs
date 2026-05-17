@@ -13,40 +13,56 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
     let start_page = (start as usize) & !(PAGE_SIZE - 1);
     let end_page = ((start as usize + size - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
 
-    let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
-        return false;
-    };
-    let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
-        return false;
-    };
-    let mut cursor = mapper.cursor();
     let Ok(layout) = PageLayout::from_size_align(PAGE_SIZE, PAGE_SIZE) else {
         return false;
     };
+
     let mut page = start_page;
     while page < end_page {
         let page_vaddr = VirtAddr::from(page);
 
-        if cursor.query(page_vaddr).is_ok() {
+        // Check if already mapped (briefly lock mapper, then drop)
+        let already_mapped = {
+            let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
+                return false;
+            };
+            mapper.cursor().query(page_vaddr).is_ok()
+        };
+        if already_mapped {
             page += PAGE_SIZE;
             continue;
         }
 
-        let paddr = match frame_alloc.allocate(layout) {
-            Ok(range) => PhysAddr::from(range.start()),
-            Err(_) => return false,
+        // Allocate a physical frame (drop frame_alloc lock before mapping)
+        let paddr = {
+            let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
+                return false;
+            };
+            match frame_alloc.allocate(layout) {
+                Ok(range) => PhysAddr::from(range.start()),
+                Err(_) => return false,
+            }
         };
 
-        if cursor
-            .map(
-                page_vaddr,
-                paddr,
-                PageSize::Size4K,
-                MappingFlags::READ | MappingFlags::WRITE,
-            )
-            .is_err()
+        // Map the page. cursor.map() may need FRAME_ALLOCATOR internally to
+        // allocate page-table pages (via PagingHandler). We dropped the
+        // frame_alloc guard above, so the handler can acquire it.
         {
-            return false;
+            let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
+                return false;
+            };
+            if mapper
+                .cursor()
+                .map(
+                    page_vaddr,
+                    paddr,
+                    PageSize::Size4K,
+                    MappingFlags::READ | MappingFlags::WRITE,
+                )
+                .is_err()
+            {
+                return false;
+            }
         }
 
         page += PAGE_SIZE;
@@ -83,14 +99,12 @@ impl GlobalHeap {
             return;
         }
 
-        // Pre-map the entire heap region before initializing the slab allocator,
-        // since SlabHeap::new() writes intrusive free-list metadata into the
-        // heap memory range. Without pre-mapping, those writes would fault.
-        let heap_ptr = heap_start as *mut u8;
-        if !ensure_range_mapped(heap_ptr, heap_size) {
-            panic!("heap: failed to pre-map {} bytes at {:#x}", heap_size, heap_start);
-        }
-
+        // SlabHeap::new() writes intrusive free-list metadata across the slab
+        // regions. The heap virtual addresses have no physical backing yet, so
+        // each write will trigger a page fault. On x86_64 the page-fault
+        // handler lazily allocates a physical frame and maps it on demand.
+        // This avoids pre-allocating physical memory for the entire heap
+        // (which is 100 MiB) when only a fraction is actually used.
         *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
         self.initialized.store(true, Ordering::Release);
     }
