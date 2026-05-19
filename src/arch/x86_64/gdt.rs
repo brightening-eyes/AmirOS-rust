@@ -12,7 +12,14 @@ lazy_static! {
         let mut tss = TaskStateSegment::new();
         tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
             const STACK_SIZE: usize = 4096 * 5;
+            // The IST stack is written once during lazy_static init, before
+            // any interrupt can fire. We take only a raw pointer (not a
+            // reference), so no aliasing UB occurs.
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
+            // SAFETY: &raw const creates a raw pointer, not a reference,
+            // so this does not trigger the aliasing guarantees that make
+            // static mut problematic. The access is also confined to this
+            // single-threaded initialization path.
             let stack_start = VirtAddr::from_ptr(&raw const STACK);
             stack_start + STACK_SIZE as u64
         };

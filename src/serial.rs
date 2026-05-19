@@ -19,31 +19,34 @@ lazy_static! {
         #[cfg(target_arch = "riscv64")]
         let serial_port = unsafe {
             Uart16550Tty::new_mmio(
-                core::ptr::NonNull::new(0x10000000 as *mut u8).unwrap(),
+                core::ptr::NonNull::new(0x10000000 as *mut u8)
+                    .expect("serial: null UART MMIO address on riscv64"),
                 1,
                 Config::default(),
             )
-            .expect("failed to init serial")
+            .expect("serial: failed to init riscv64 UART")
         };
 
         #[cfg(target_arch = "aarch64")]
         let serial_port = unsafe {
             Uart16550Tty::new_mmio(
-                core::ptr::NonNull::new(0x09000000 as *mut u8).unwrap(),
+                core::ptr::NonNull::new(0x09000000 as *mut u8)
+                    .expect("serial: null UART MMIO address on aarch64"),
                 1,
                 Config::default(),
             )
-            .expect("failed to init serial")
+            .expect("serial: failed to init aarch64 UART")
         };
 
         #[cfg(target_arch = "loongarch64")]
         let serial_port = unsafe {
             Uart16550Tty::new_mmio(
-                core::ptr::NonNull::new(0x1fe001e0 as *mut u8).unwrap(),
+                core::ptr::NonNull::new(0x1fe001e0 as *mut u8)
+                    .expect("serial: null UART MMIO address on loongarch64"),
                 1,
                 Config::default(),
             )
-            .expect("failed to init serial")
+            .expect("serial: failed to init loongarch64 UART")
         };
 
         Mutex::new(serial_port)

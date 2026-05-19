@@ -13,7 +13,13 @@ pub type PageTableEntry = arch::PageTableEntry;
 
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
-        let hhdm_offset = usize::try_from(crate::HHDM_REQUEST.response().unwrap().offset).unwrap();
+        let hhdm_offset = usize::try_from(
+            crate::HHDM_REQUEST
+                .response()
+                .expect("memory: failed to get HHDM response")
+                .offset,
+        )
+        .expect("memory: invalid HHDM offset");
         RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
     };
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
@@ -34,10 +40,12 @@ pub fn init(memmap: &[&Entry]) {
     FRAME_ALLOCATOR.write().init(memmap);
     // Get the necessary information from the bootloader.
     let hhdm_offset = FRAME_ALLOCATOR.read().hhdm_offset;
-    let kernel_address = crate::EXECUTABLE_ADDRESS_REQUEST.response().unwrap();
+    let kernel_address = crate::EXECUTABLE_ADDRESS_REQUEST
+        .response()
+        .expect("memory: failed to get kernel address response");
     let kernel_file = crate::EXECUTABLE_FILE_REQUEST
         .response()
-        .unwrap()
+        .expect("memory: failed to get kernel file response")
         .executable_file();
     let mut mapper = PAGE_MAPPER.write();
     let flags = MappingFlags::READ | MappingFlags::WRITE;
@@ -52,8 +60,11 @@ pub fn init(memmap: &[&Entry]) {
         if matches!(entry.type_, MEMMAP_BAD_MEMORY) {
             continue;
         }
-        let start_pa = usize::try_from(entry.base).unwrap();
-        let end_pa = start_pa + usize::try_from(entry.length).unwrap();
+        let start_pa = usize::try_from(entry.base).expect("memory: invalid base in memmap entry");
+        let length = usize::try_from(entry.length).expect("memory: invalid length in memmap entry");
+        let end_pa = start_pa
+            .checked_add(length)
+            .expect("memory: integer overflow in memmap range calculation");
         let mut pa = start_pa;
 
         while pa < end_pa {
@@ -115,10 +126,14 @@ pub fn init(memmap: &[&Entry]) {
     log::info!("HHDM and low-memory identity mapping complete.");
 
     // Second, map the kernel itself at its higher-half virtual address.
-    let kernel_physical_address =
-        PhysAddr::from(usize::try_from(kernel_address.physical_base).unwrap());
-    let kernel_virtual_address =
-        VirtAddr::from(usize::try_from(kernel_address.virtual_base).unwrap());
+    let kernel_physical_address = PhysAddr::from(
+        usize::try_from(kernel_address.physical_base)
+            .expect("memory: invalid kernel physical base address"),
+    );
+    let kernel_virtual_address = VirtAddr::from(
+        usize::try_from(kernel_address.virtual_base)
+            .expect("memory: invalid kernel virtual base address"),
+    );
     let kernel_size =
         (kernel_file.data().len() + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
     let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
