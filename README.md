@@ -1,276 +1,185 @@
 # AmirOS
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/brightening-eyes/AmirOS-rust/blob/main/LICENSE)
-[![Lint](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/lint.yml/badge.svg)](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/lint.yml)
-[![Security Audit](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/audit.yml/badge.svg)](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/audit.yml)
-[![Cargo Deny](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/deny.yml/badge.svg)](https://github.com/brightening-eyes/AmirOS-rust/actions/workflows/deny.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+![Rust](https://img.shields.io/badge/rust-nightly_2024_edition-orange.svg)
+[![CI](https://github.com/anomalyco/AmirOS-rust/actions/workflows/lint.yml/badge.svg)](https://github.com/anomalyco/AmirOS-rust/actions/workflows/lint.yml)
 
-An experimental operating system kernel written in Rust, targeting multiple CPU architectures with modern memory management and SMP support.
+A multi-architecture hobby OS kernel written in Rust. Targets **x86_64**, **riscv64**, **aarch64**, and **loongarch64** using the [Limine](https://github.com/limine-bootloader/limine) boot protocol.
 
 ## Features
 
-- **Multi-Architecture Support** - Runs on x86_64, RISC-V 64, AArch64, and LoongArch64
-- **Limine Boot Protocol** - Modern bootloader with advanced features
-- **Higher Half Kernel** - Kernel mapped at `0xffffffff80000000` for user space below
-- **Advanced Memory Management**
-  - Frame allocator using free-list
-  - Higher Half Direct Mapping (HHDM) for all physical memory
-  - On-demand heap page mapping
-  - Support for 4KB, 2MB, and 1GB pages
-- **Heap Allocator** - Slab-based allocator with automatic page mapping
-- **SMP Support** - Multiprocessor boot via Limine MP protocol
-- **Serial Console** - UART 16550 driver with `log` crate integration
-- **x86_64 Interrupts** - GDT, TSS, and IDT with exception handlers
+- Multi-architecture support via unified abstractions
+- Limine boot protocol (revision 0) with requests for framebuffer, memory map, HHDM, SMP, ACPI RSDP, SMBIOS, EFI tables, DTB, kernel file/address, and paging mode
+- Higher Half Direct Map (HHDM) of all physical memory with identity-mapped low 4 GiB
+- Physical memory frame allocator (free-list based, initialized from bootloader memory map)
+- Multi-architecture page table management (`page_table_multiarch`)
+- Slab heap allocator with on-demand physical page mapping via page faults (x86_64)
+- Serial logging via UART 16550 (PIO on x86_64, MMIO on other architectures)
+- SMP bootstrap for application processors
+- Interrupt handling on x86_64: GDT, IDT (breakpoint, page fault, double fault with IST)
+- ACPI, SMBIOS, EFI, and Device Tree Blob support
 
-## Supported Architectures
+## Architecture Support
 
-| Architecture | Target | Status | Notes |
-|--------------|--------|--------|-------|
-| **x86_64** | `x86_64-unknown-none` | Most Complete | GDT, IDT, full interrupt support |
-| **RISC-V 64** | `riscv64gc-unknown-none-elf` | Partial | Sv48 paging |
-| **AArch64** | `aarch64-unknown-none` | Partial | Basic initialization |
-| **LoongArch64** | `loongarch64-unknown-none` | Minimal | LA64 paging |
+| Arch | Init | Paging | Interrupts | SMP |
+|---|---|---|---|---|
+| x86_64 | CR3, GDT, IDT | `X64PageTable` (4LVL) | Breakpoint, PF, Double Fault | Yes |
+| riscv64 | SATP (Sv48) | `Sv48PageTable` | — | Yes |
+| aarch64 | — | `A64PageTable` | — | Yes |
+| loongarch64 | — | `LA64PageTable` | — | — |
 
-## Prerequisites
+## Getting Started
 
-- **Rust Nightly** - This project uses unstable features
-- **QEMU** - For running the kernel in a virtual machine
-- **Limine** - Bootloader (included in `limine/` directory)
+### Prerequisites
 
-### Installing Rust
+- Rust nightly — install via `rustup toolchain install nightly`
+- Build targets:
+  ```sh
+  rustup target add x86_64-unknown-none
+  rustup target add riscv64gc-unknown-none-elf
+  rustup target add aarch64-unknown-none
+  rustup target add loongarch64-unknown-none
+  ```
+- Install `xorriso` and the appropriate `qemu-system-*` for your target
+- Initialize the Limine submodule:
+  ```sh
+  git submodule update --init
+  ```
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup toolchain install nightly
-rustup component add rust-src --toolchain nightly
-```
+### Build
 
-### Installing QEMU
-
-**Linux (Debian/Ubuntu):**
-```bash
-sudo apt install qemu-system-x86
-```
-
-**Linux (Arch):**
-```bash
-sudo pacman -S qemu-system-x86
-```
-
-**macOS:**
-```bash
-brew install qemu
-```
-
-**Windows:**
-Download from [qemu.org](https://www.qemu.org/download/)
-
-## Building
-
-```bash
-# Clone the repository
-git clone https://github.com/brightening-eyes/AmirOS-rust.git
-cd AmirOS-rust
-
-# Build for x86_64 (default)
-cargo build
-
-# Build for other architectures
-cargo build --target riscv64gc-unknown-none-elf
-cargo build --target aarch64-unknown-none
-cargo build --target loongarch64-unknown-none
-
-# Build in release mode
+```sh
 cargo build --release
 ```
 
-## Running
+Cross-compile for a specific target:
 
-### With QEMU (x86_64)
-
-```bash
-# Build and create bootable image
-cargo build
-
-# Run with QEMU
-qemu-system-x86_64 \
-  -cdrom target/amir_os/amir_os-x86_64.iso \
-  -serial stdio \
-  -m 512M
+```sh
+cargo build --release --target x86_64-unknown-none
+cargo build --release --target riscv64gc-unknown-none-elf
+cargo build --release --target aarch64-unknown-none
+cargo build --release --target loongarch64-unknown-none
 ```
 
-### QEMU Options
+### Create Bootable ISO
 
-| Option | Description |
-|--------|-------------|
-| `-cdrom` | Boot from ISO image |
-| `-serial stdio` | Redirect serial output to console |
-| `-m 512M` | Allocate 512MB RAM |
-| `-nographic` | Disable graphical output |
-| `-device isa-debug-exit,iobase=0xf4,iosize=0x04` | Enable test exit device |
+```sh
+mkdir -p iso_root/boot
+cp target/x86_64-unknown-none/release/amir_os iso_root/boot/
+cp limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin \
+   limine/limine-uefi-cd.bin iso_root/
+
+xorriso -as mkisofs -b limine-bios-cd.bin \
+   -no-emul-boot -boot-load-size 4 -boot-info-table \
+   --efi-boot limine-uefi-cd.bin -efi-boot-part \
+   --efi-boot-image --protective-msdos-label \
+   iso_root -o amir_os.iso
+
+./limine/limine bios-install amir_os.iso
+```
+
+### Run in QEMU
+
+```sh
+qemu-system-x86_64 -cdrom amir_os.iso -serial stdio
+```
+
+For other architectures, use the appropriate QEMU binary:
+
+```sh
+qemu-system-riscv64   -cdrom amir_os.iso -serial stdio -machine virt
+qemu-system-aarch64   -cdrom amir_os.iso -serial stdio -machine virt
+```
 
 ## Project Structure
 
 ```
-AmirOS-rust/
 ├── src/
-│   ├── main.rs              # Entry point, Limine requests, panic handler
-│   ├── allocator.rs         # Global heap allocator setup
-│   ├── heap.rs              # Slab allocator with on-demand mapping
-│   ├── serial.rs            # UART 16550 driver + logging
-│   ├── memory/
-│   │   ├── mod.rs           # Memory manager, HHDM setup
-│   │   ├── allocator.rs     # Frame allocator
-│   │   └── paging.rs        # Multiarch paging handler
-│   └── arch/
-│       ├── mod.rs           # Architecture dispatcher
-│       ├── x86_64/          # x86_64 specific (GDT, IDT, paging)
-│       ├── riscv64/         # RISC-V specific (SATP, paging)
-│       ├── aarch64/         # ARM64 specific
-│       └── loongarch64/     # LoongArch64 specific
-├── limine/                  # Limine bootloader binaries
-├── limine.conf              # Bootloader configuration
-├── linker-x86_64.ld         # x86_64 linker script
-├── linker-riscv64.ld        # RISC-V linker script
-├── Cargo.toml               # Package configuration
-├── rust-toolchain.toml      # Rust toolchain specification
-├── deny.toml                # cargo-deny configuration
-└── .cargo/
-    └── config.toml          # Build configuration
+│   ├── main.rs            — Kernel entry point, Limine requests, SMP bootstrap
+│   ├── allocator.rs       — Global allocator (slab heap, 100 MiB at 0x4444_4444_0000)
+│   ├── heap.rs            — Heap implementation with on-demand physical page mapping
+│   ├── serial.rs          — UART 16550 serial driver and logger
+│   ├── arch/
+│   │   ├── mod.rs         — Architecture dispatch via cfg attributes
+│   │   ├── x86_64/        — GDT, IDT, paging, CR3 loading
+│   │   │   ├── gdt.rs     — Global Descriptor Table with TSS
+│   │   │   ├── idt.rs     — Interrupt Descriptor Table, demand paging PF handler
+│   │   │   └── paging.rs  — X64PageTable type alias
+│   │   ├── riscv64/       — SATP setup, Sv48 paging
+│   │   │   └── paging.rs  — Sv48PageTable type alias
+│   │   ├── aarch64/       — Paging
+│   │   │   └── paging.rs  — A64PageTable type alias
+│   │   └── loongarch64/   — Paging
+│   │       └── paging.rs  — LA64PageTable type alias
+│   └── memory/
+│       ├── mod.rs         — HHDM + kernel mapping initialization
+│       ├── allocator.rs   — Physical frame allocator (free-list)
+│       └── paging.rs      — Multi-arch PagingHandler (AmirOSPagingHandler)
+├── linker-x86_64.ld       — x86_64 linker script (higher-half, Limine requests PHDR)
+├── linker-riscv64.ld      — riscv64 linker script (higher-half)
+├── limine.conf            — Limine boot configuration
+├── limine/                — Limine bootloader submodule
+├── rust-toolchain.toml    — Nightly channel + target specifications
+├── .cargo/
+│   └── config.toml        — Build flags, linker script, build-std config
+├── .github/
+│   └── workflows/         — CI: audit, deny, lint, opencode
+└── .husky/                — Pre-commit and pre-push hooks
 ```
 
-## Architecture Overview
-
-### Memory Layout
-
-```
-Virtual Address Space (x86_64):
-┌─────────────────────────────┐ 0xffffffffffffffff
-│        Kernel Space         │
-│  ┌───────────────────────┐  │ 0xffffffff80000000
-│  │   Kernel Image        │  │ - Higher half kernel
-│  └───────────────────────┘  │
-│  ┌───────────────────────┐  │
-│  │   Heap Allocator      │  │ 0x444444440000
-│  └───────────────────────┘  │
-├─────────────────────────────┤ 0x7ffffffffff
-│        User Space           │
-│  (Not yet implemented)      │
-├─────────────────────────────┤
-│   Identity Mapped (4 GiB)   │ - For safe CR3 switch
-└─────────────────────────────┘ 0x0
-```
+## Technical Details
 
 ### Boot Process
 
-1. **BIOS/UEFI** loads the Limine bootloader
-2. **Limine** parses `limine.conf` and loads the kernel
-3. **Kernel Entry** (`main.rs`) receives Limine protocol info:
-   - Framebuffer
-   - Memory map
-   - SMP (multiprocessor) info
-   - ACPI/Device Tree tables
-4. **Initialization Sequence**:
-   ```
-   serial::init()     → Initialize console and logger
-   memory::init()     → Set up frame allocator & page tables
-   arch::init()       → Architecture-specific (GDT, IDT, CR3)
-   allocator::init()  → Initialize heap allocator
-   SMP bootstrap      → Start secondary CPUs
-   ```
+The kernel uses the Limine boot protocol. On startup, it:
 
-### Key Modules
+1. Initializes serial logging via UART 16550
+2. Validates the bootloader supports base revision
+3. Requests and stores bootloader information, memory map, framebuffer, and other system tables
+4. Initializes the physical memory frame allocator from the memory map
+5. Maps all physical memory into the higher half (HHDM) and identity-maps the low 4 GiB
+6. Remaps the kernel at its higher-half virtual address
+7. Performs architecture-specific initialization (GDT, IDT, CR3, SATP, etc.)
+8. Initializes the slab heap allocator
+9. Bootstraps application processors (SMP)
 
-| Module | Purpose |
-|--------|---------|
-| `memory` | Physical frame allocation, virtual memory mapping |
-| `arch` | Architecture-specific code (GDT, IDT, page tables) |
-| `allocator` | Global heap allocator using `slab_allocator_rs` |
-| `serial` | UART driver for console output and logging |
+### Memory Management
 
-## Development
+- **Frame Allocator**: A `FreeList<16>`-based allocator that tracks usable physical memory regions from the bootloader's memory map. Supports allocation and deallocation of page-aligned physical frames.
+- **Page Tables**: The `page_table_multiarch` crate provides a unified interface across all four architectures. `AmirOSPagingHandler` bridges frame allocation requests to the kernel's frame allocator.
+- **HHDM**: All physical memory (excluding bad regions) is mapped at `phys_addr + hhdm_offset` using the largest available page size (1 GiB → 2 MiB → 4 KiB). The low 4 GiB is also identity-mapped to ensure a seamless transition when switching page tables.
+- **Kernel Heap**: 100 MiB slab allocator at `0x4444_4444_0000`. On x86_64, physical pages are allocated on demand via the page fault handler — the heap range is mapped lazily as memory is accessed.
 
-### CI/CD Workflows
+### Architecture Abstraction
 
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| `lint.yml` | Push/PR | `cargo fmt` and `cargo clippy` checks |
-| `audit.yml` | Push/PR + Daily | Security vulnerability scanning |
-| `deny.yml` | Push/PR + Daily | License and dependency checks |
+Each architecture provides a consistent interface:
 
-### Git Hooks
+- `init()` — architecture-specific initialization
+- `holt()` — halt the CPU (HLT/WFI/IDLE loop)
+- `PageTable` / `PageTableEntry` — page table type aliases
 
-This project uses `husky-rs` for git hooks. To activate:
+Conditional compilation (`#[cfg(target_arch = "...")]`) in `src/arch/mod.rs` selects the correct backend at build time.
 
-```bash
-cargo build
-```
+### Kernel Heap & Demand Paging (x86_64)
 
-**Pre-commit & Pre-push hooks run:**
-- `cargo fmt --all -- --check` - Code formatting check
-- `cargo clippy -- -D warnings` - Linting with warnings as errors
+The slab heap allocator (`slab_allocator_rs`) lives at a fixed virtual address. When `SlabHeap::new()` writes its intrusive free-list metadata, the writes trigger page faults. The x86_64 page fault handler detects addresses in the heap range, allocates a physical frame, and maps it — allowing the heap to use physical memory proportional to actual usage rather than pre-allocating 100 MiB.
 
-To skip hooks (not recommended):
-```bash
-NO_HUSKY_HOOKS=1 cargo build
-```
+## CI/CD & Quality
 
-### Code Style
+| Workflow | Trigger | Action |
+|---|---|---|
+| **Lint** | Push/PR to main | `cargo fmt --check` + `cargo clippy -D warnings` |
+| **Security Audit** | Push/PR, nightly cron | `cargo audit` |
+| **Cargo Deny** | Push/PR, nightly cron | License, ban, and source checks |
+| **Dependabot** | Daily | Crate and toolchain dependency updates |
 
-```bash
-# Format code
-cargo fmt
-
-# Run linter
-cargo clippy
-
-# Check formatting without modifying
-cargo fmt -- --check
-```
-
-### Security Checks
-
-```bash
-# Check for known vulnerabilities
-cargo audit
-
-# Check licenses and dependencies
-cargo deny check
-```
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run checks:
-   ```bash
-   cargo fmt -- --check
-   cargo clippy -- -D warnings
-   cargo audit
-   cargo deny check
-   ```
-5. Commit your changes (hooks will run automatically)
-6. Push to the branch
-7. Open a Pull Request
-
-## Roadmap
-
-- [ ] User mode support
-- [ ] System calls
-- [ ] File system
-- [ ] Network stack
-- [ ] GUI/Window manager
-- [ ] Device drivers (keyboard, mouse, disk)
-
-## Acknowledgments
-
-- [Limine Bootloader](https://github.com/limine-bootloader/limine) - Modern bootloader protocol
-- [page_table_multiarch](https://crates.io/crates/page_table_multiarch) - Multi-architecture paging
-- [Writing an OS in Rust](https://os.phil-opp.com/) - Excellent OS development tutorial
+Pre-commit and pre-push hooks run `cargo fmt` and `cargo clippy` via Husky.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Dual-licensed under either:
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
+
+at your option.

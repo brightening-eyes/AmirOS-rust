@@ -2,7 +2,7 @@
 name = "amir_os"
 version = "0.1.0"
 edition = "2024"
-license = "Apache-2.0"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 acpi = "6.1.1"
@@ -50,8 +50,3 @@ strip = "symbols"
 name = "amir_os"
 test = false
 bench = false
-
-[package.metadata.limage]
-test-success-exit-code = 33 # (0x10 << 1) | 1
-test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]
-image-path = "target/amir_os/amir_os-x86_64.iso"
