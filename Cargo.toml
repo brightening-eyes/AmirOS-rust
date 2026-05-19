@@ -45,6 +45,7 @@ codegen-units = 1
 panic = "abort"
 lto = "fat"
 strip = "symbols"
+overflow-checks = true
 
 [[bin]]
 name = "amir_os"

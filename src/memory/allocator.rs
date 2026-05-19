@@ -7,7 +7,9 @@ pub struct FrameAllocator {
     pub hhdm_offset: usize,
 }
 
-// ensure safety via mutex
+// Safety: FrameAllocator wraps FreeList<16> and a usize. FreeList contains
+// a SmallVec of PageRange (all Copy types), making it automatically Send+Sync.
+// External synchronization via RwLock prevents concurrent access.
 unsafe impl Send for FrameAllocator {}
 
 impl FrameAllocator {
@@ -28,8 +30,13 @@ impl FrameAllocator {
             .iter()
             .filter(|region| region.type_ == MEMMAP_USABLE)
             .map(|region| {
-                let start = usize::try_from(region.base).unwrap();
-                let end = start + usize::try_from(region.length).unwrap();
+                let start =
+                    usize::try_from(region.base).expect("allocator: invalid base in memory region");
+                let length = usize::try_from(region.length)
+                    .expect("allocator: invalid length in memory region");
+                let end = start
+                    .checked_add(length)
+                    .expect("allocator: integer overflow in memory region calculation");
                 (start..end).try_into()
             })
             .filter_map(Result::ok)

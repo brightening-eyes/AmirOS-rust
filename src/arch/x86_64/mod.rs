@@ -1,5 +1,6 @@
 //! x86_64-specific architecture code.
 use core::arch::asm;
+use memory_addr::VirtAddr;
 use x86_64::instructions;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 pub mod gdt;
@@ -28,21 +29,28 @@ pub fn init() {
     gdt::init();
     idt::init();
     // page table is ready. load into Cr3
-    match crate::memory::PAGE_MAPPER.try_read() {
-        Some(mapper) => {
-            let root_paddr = mapper.root_paddr();
-            let frame = x86_64::structures::paging::PhysFrame::from_start_address(
-                x86_64::PhysAddr::new(root_paddr.as_usize() as u64),
-            )
-            .expect("could not load the memory into provided paging structure.");
-            // This is the point of no return. After this instruction, the CPU
-            // uses our new page table for all memory access.
-            unsafe { Cr3::write(frame, Cr3Flags::empty()) };
-        }
-        None => {
-            panic!("error reading page map!.");
-        }
-    }
+    let mapper = crate::memory::PAGE_MAPPER.read();
+    let root_paddr = mapper.root_paddr();
+    let frame = x86_64::structures::paging::PhysFrame::from_start_address(x86_64::PhysAddr::new(
+        root_paddr.as_usize() as u64,
+    ))
+    .expect("x86_64: could not load the memory into provided paging structure.");
+    // This is the point of no return. After this instruction, the CPU
+    // uses our new page table for all memory access.
+    unsafe { Cr3::write(frame, Cr3Flags::empty()) };
+    drop(mapper);
     instructions::interrupts::enable();
+
+    // Set up a guard page below the kernel stack to catch stack overflows.
+    // Read the current stack pointer and unmap the page immediately below
+    // the stack's estimated bottom (128 KiB below the top).
+    let rsp: usize;
+    unsafe { asm!("mov {}, rsp", out(reg) rsp, options(nomem, nostack)) };
+    let stack_top = (rsp + 0xFFF) & !0xFFF;
+    let stack_bottom = stack_top.saturating_sub(128 * 1024);
+    let guard_page = stack_bottom.saturating_sub(0x1000);
+    let mut mapper = crate::memory::PAGE_MAPPER.write();
+    let _ = mapper.cursor().unmap(VirtAddr::from(guard_page));
+
     log::info!("x86_64 architecture initialized.");
 }

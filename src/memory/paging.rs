@@ -10,28 +10,33 @@ pub struct AmirOSPagingHandler;
 
 impl PagingHandler for AmirOSPagingHandler {
     fn alloc_frames(num_pages: usize, align: usize) -> Option<PhysAddr> {
-        let layout: PageLayout = PageLayout::from_size_align(num_pages * 0x1000, align).unwrap();
-        match FRAME_ALLOCATOR.try_write() {
-            Some(mut allocator) => {
-                if let Ok(page_range) = allocator.allocate(layout) {
-                    let paddr = page_range.start();
-                    Some(PhysAddr::from(paddr))
-                } else {
-                    None
-                }
-            }
-            None => None,
+        let size = num_pages
+            .checked_mul(0x1000)
+            .expect("paging: integer overflow in alloc_frames size");
+        let layout: PageLayout = PageLayout::from_size_align(size, align)
+            .expect("paging: invalid page layout for alloc_frames");
+        let mut allocator = FRAME_ALLOCATOR.write();
+        if let Ok(page_range) = allocator.allocate(layout) {
+            let paddr = page_range.start();
+            Some(PhysAddr::from(paddr))
+        } else {
+            None
         }
     }
 
     fn dealloc_frames(paddr: PhysAddr, num_pages: usize) {
-        let layout = Layout::from_size_align(num_pages * 0x1000, 0x1000).unwrap();
-        if let Some(mut allocator) = FRAME_ALLOCATOR.try_write() {
-            let vaddr_start = paddr.as_usize();
-            let vaddr_end = vaddr_start + layout.size();
-            if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
-                allocator.deallocate(page_range);
-            }
+        let size = num_pages
+            .checked_mul(0x1000)
+            .expect("paging: integer overflow in dealloc_frames size");
+        let layout = Layout::from_size_align(size, 0x1000)
+            .expect("paging: invalid layout for dealloc_frames");
+        let mut allocator = FRAME_ALLOCATOR.write();
+        let vaddr_start = paddr.as_usize();
+        let vaddr_end = vaddr_start
+            .checked_add(layout.size())
+            .expect("paging: integer overflow in dealloc_frames range");
+        if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
+            allocator.deallocate(page_range);
         }
     }
 

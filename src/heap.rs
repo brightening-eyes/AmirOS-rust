@@ -23,9 +23,7 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
 
         // Check if already mapped (briefly lock mapper, then drop)
         let already_mapped = {
-            let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
-                return false;
-            };
+            let mut mapper = crate::memory::PAGE_MAPPER.write();
             mapper.cursor().query(page_vaddr).is_ok()
         };
         if already_mapped {
@@ -35,9 +33,7 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
 
         // Allocate a physical frame (drop frame_alloc lock before mapping)
         let paddr = {
-            let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
-                return false;
-            };
+            let mut frame_alloc = crate::memory::FRAME_ALLOCATOR.write();
             match frame_alloc.allocate(layout) {
                 Ok(range) => PhysAddr::from(range.start()),
                 Err(_) => return false,
@@ -48,9 +44,7 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
         // allocate page-table pages (via PagingHandler). We dropped the
         // frame_alloc guard above, so the handler can acquire it.
         {
-            let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
-                return false;
-            };
+            let mut mapper = crate::memory::PAGE_MAPPER.write();
             if mapper
                 .cursor()
                 .map(
@@ -76,7 +70,11 @@ pub struct GlobalHeap {
     initialized: AtomicBool,
 }
 
+// Safety: GlobalHeap contains a Mutex (which is already Send+Sync) and an
+// AtomicBool. All fields are safe to send/share between threads.
 unsafe impl Send for GlobalHeap {}
+// Safety: same as Send — Mutex provides internal synchronization, AtomicBool
+// is natively Sync.
 unsafe impl Sync for GlobalHeap {}
 
 impl Default for GlobalHeap {
@@ -112,7 +110,7 @@ impl GlobalHeap {
 
 unsafe impl GlobalAlloc for GlobalHeap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if !self.initialized.load(Ordering::Relaxed) {
+        if !self.initialized.load(Ordering::Relaxed) || layout.size() == 0 {
             return core::ptr::null_mut();
         }
 
@@ -135,31 +133,8 @@ unsafe impl GlobalAlloc for GlobalHeap {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        if !self.initialized.load(Ordering::Relaxed) || ptr.is_null() {
+        if !self.initialized.load(Ordering::Relaxed) || ptr.is_null() || layout.size() == 0 {
             return;
-        }
-
-        let start_page = (ptr as usize) & !(PAGE_SIZE - 1);
-        let end_page = ((ptr as usize + layout.size() - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
-        let Some(mut mapper) = crate::memory::PAGE_MAPPER.try_write() else {
-            return;
-        };
-        let Some(mut frame_alloc) = crate::memory::FRAME_ALLOCATOR.try_write() else {
-            return;
-        };
-        let mut cursor = mapper.cursor();
-        let mut page = start_page;
-        while page < end_page {
-            let page_vaddr = VirtAddr::from(page);
-
-            if let Ok((paddr, _, _)) = cursor.unmap(page_vaddr) {
-                let range = paddr.as_usize()..paddr.as_usize() + PAGE_SIZE;
-                if let Ok(page_range) = range.try_into() {
-                    frame_alloc.deallocate(page_range);
-                }
-            }
-
-            page += PAGE_SIZE;
         }
 
         if let Some(nptr) = NonNull::new(ptr)

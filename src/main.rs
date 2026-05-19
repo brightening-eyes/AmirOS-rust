@@ -148,8 +148,10 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 /// if anything fails in the kernel, we will panic and halt
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> ! {
-    serial::init();
-    log::info!("logger initialized");
+    // Serial init is deferred to after memory::init() so that MMIO-based
+    // serial ports (riscv64, aarch64, loongarch64) are accessible via the
+    // HHDM. On x86_64 (PIO) the order doesn't matter.
+    // serial::init() is called below after memory init.
     assert!(
         BASE_REVISION.is_supported(),
         "boot loader base revision not supported!."
@@ -163,8 +165,16 @@ pub extern "C" fn main() -> ! {
     if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.response() {
         log::info!("we have the frame buffer, we'll do for it later");
     }
-    memory::init(MEMORY_MAP_REQUEST.response().unwrap().entries());
+    memory::init(
+        MEMORY_MAP_REQUEST
+            .response()
+            .expect("main: failed to get memory map response")
+            .entries(),
+    );
     log::info!("memory manager initialized.");
+    // Now that memory is set up, initialize serial (safe for MMIO-based ports).
+    serial::init();
+    log::info!("logger initialized");
     arch::init();
     log::info!("architecture initialization complete.");
     allocator::init();
@@ -210,8 +220,14 @@ pub extern "C" fn main() -> ! {
     }
 }
 
-/// # Safety
 /// Called by the bootloader on AP startup via `MpInfo::bootstrap`.
+///
+/// # Safety
+///
+/// - `_cpu` must be a valid `&MpInfo` provided by the bootloader.
+/// - May only be called once per AP core, from the AP bootstrap context.
+/// - The kernel's page table, GDT, IDT, and heap must already be initialized
+///   on the BSP before any AP is bootstrapped.
 #[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn os_loop(_cpu: &limine::mp::MpInfo) -> ! {
     log::info!("processor started.");
