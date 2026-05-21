@@ -10,7 +10,7 @@ async-task = { version = "4.7.1", default-features = false }
 bit_field="0.10.3"
 critical-section = "1.2.0"
 crossbeam = { version = "0.8.4", default-features = false, features = ["alloc"] }
-either = { version = "1.15.0", default-features = false }
+either = { version = "1.16.0", default-features = false }
 free-list = "0.3.3"
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 limine = "0.6.3"
