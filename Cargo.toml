@@ -15,7 +15,7 @@ free-list = "0.3.3"
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 limine = "0.6.3"
 local-waker = "0.1.4"
-log = "0.4.31"
+log = "0.4.32"
 meminterval = "0.4.2"
 memory_addr = "0.4.1"
 object = { version="0.39.1", default-features=false, features=["read"] }
