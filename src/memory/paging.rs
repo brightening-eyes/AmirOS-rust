@@ -31,11 +31,11 @@ impl PagingHandler for AmirOSPagingHandler {
         let layout = Layout::from_size_align(size, 0x1000)
             .expect("paging: invalid layout for dealloc_frames");
         let mut allocator = FRAME_ALLOCATOR.write();
-        let vaddr_start = paddr.as_usize();
-        let vaddr_end = vaddr_start
+        let paddr_start = paddr.as_usize();
+        let paddr_end = paddr_start
             .checked_add(layout.size())
             .expect("paging: integer overflow in dealloc_frames range");
-        if let Ok(page_range) = (vaddr_start..vaddr_end).try_into() {
+        if let Ok(page_range) = (paddr_start..paddr_end).try_into() {
             allocator.deallocate(page_range);
         }
     }

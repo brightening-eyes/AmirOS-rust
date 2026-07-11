@@ -11,6 +11,7 @@ pub struct FrameAllocator {
 // a SmallVec of PageRange (all Copy types), making it automatically Send+Sync.
 // External synchronization via RwLock prevents concurrent access.
 unsafe impl Send for FrameAllocator {}
+unsafe impl Sync for FrameAllocator {}
 
 impl FrameAllocator {
     #[must_use]

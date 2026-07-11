@@ -28,9 +28,9 @@ lazy_static! {
     };
 }
 
-pub static PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
-pub static PAGE_SIZE_2M: usize = 2 * 1024 * 1024;
-pub static PAGE_SIZE: usize = 4096;
+pub const PAGE_SIZE_1G: usize = 1024 * 1024 * 1024;
+pub const PAGE_SIZE_2M: usize = 2 * 1024 * 1024;
+pub const PAGE_SIZE: usize = 4096;
 
 /// initialization code for the memory manager and page mapping.
 /// # Panics
