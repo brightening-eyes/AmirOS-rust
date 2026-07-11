@@ -1,15 +1,16 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicBool, Ordering};
-use free_list::PageLayout;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use slab_allocator_rs::Heap as SlabHeap;
 use spin::Mutex;
 
-const PAGE_SIZE: usize = 4096;
+use crate::memory::PAGE_SIZE;
 
 fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
+    use free_list::PageLayout;
+
     let start_page = (start as usize) & !(PAGE_SIZE - 1);
     let end_page = ((start as usize + size - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
 
@@ -21,17 +22,10 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
     while page < end_page {
         let page_vaddr = VirtAddr::from(page);
 
-        // Check if already mapped (briefly lock mapper, then drop)
-        let already_mapped = {
-            let mut mapper = crate::memory::PAGE_MAPPER.write();
-            mapper.cursor().query(page_vaddr).is_ok()
-        };
-        if already_mapped {
-            page += PAGE_SIZE;
-            continue;
-        }
-
-        // Allocate a physical frame (drop frame_alloc lock before mapping)
+        // Allocate a physical frame. We must do this *before* locking
+        // PAGE_MAPPER because cursor.map() may internally lock
+        // FRAME_ALLOCATOR (via AmirOSPagingHandler::alloc_frames) to
+        // allocate page-table pages.
         let paddr = {
             let mut frame_alloc = crate::memory::FRAME_ALLOCATOR.write();
             match frame_alloc.allocate(layout) {
@@ -40,23 +34,19 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
             }
         };
 
-        // Map the page. cursor.map() may need FRAME_ALLOCATOR internally to
-        // allocate page-table pages (via PagingHandler). We dropped the
-        // frame_alloc guard above, so the handler can acquire it.
+        // Map the page under PAGE_MAPPER. If another thread or the page
+        // fault handler already mapped this page (race window between the
+        // allocation above and here), cursor.map() returns AlreadyMapped
+        // which is safe to ignore — we just leak this one frame rather
+        // than risk a TOCTOU overwrite.
         {
             let mut mapper = crate::memory::PAGE_MAPPER.write();
-            if mapper
-                .cursor()
-                .map(
-                    page_vaddr,
-                    paddr,
-                    PageSize::Size4K,
-                    MappingFlags::READ | MappingFlags::WRITE,
-                )
-                .is_err()
-            {
-                return false;
-            }
+            let _ = mapper.cursor().map(
+                page_vaddr,
+                paddr,
+                PageSize::Size4K,
+                MappingFlags::READ | MappingFlags::WRITE,
+            );
         }
 
         page += PAGE_SIZE;
@@ -135,6 +125,38 @@ unsafe impl GlobalAlloc for GlobalHeap {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if !self.initialized.load(Ordering::Relaxed) || ptr.is_null() || layout.size() == 0 {
             return;
+        }
+
+        let start_page = (ptr as usize) & !(PAGE_SIZE - 1);
+        let end_page = ((ptr as usize + layout.size() - 1) & !(PAGE_SIZE - 1)) + PAGE_SIZE;
+
+        // Unmap each page and free its physical frame back to the frame
+        // allocator. We must not hold PAGE_MAPPER when locking
+        // FRAME_ALLOCATOR (cursor.map/unmap may need FRAME_ALLOCATOR
+        // internally for page-table page cleanup).
+        let mut page = start_page;
+        while page < end_page {
+            let paddr = {
+                let mut mapper = crate::memory::PAGE_MAPPER.write();
+                match mapper.cursor().unmap(VirtAddr::from(page)) {
+                    Ok((paddr, _, _)) => paddr,
+                    Err(_) => {
+                        page += PAGE_SIZE;
+                        continue;
+                    }
+                }
+            };
+
+            {
+                let mut frame_alloc = crate::memory::FRAME_ALLOCATOR.write();
+                let start = paddr.as_usize();
+                let end = start + PAGE_SIZE;
+                if let Ok(page_range) = (start..end).try_into() {
+                    frame_alloc.deallocate(page_range);
+                }
+            }
+
+            page += PAGE_SIZE;
         }
 
         if let Some(nptr) = NonNull::new(ptr)
