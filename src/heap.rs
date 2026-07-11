@@ -3,10 +3,13 @@ use core::ptr::NonNull;
 use core::sync::atomic::{AtomicBool, Ordering};
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
-use slab_allocator_rs::Heap as SlabHeap;
+use slab_allocator_rs::{Heap as SlabHeap, HeapAllocator, NUM_OF_SLABS};
 use spin::Mutex;
 
 use crate::memory::PAGE_SIZE;
+
+/// Number of pages to grow each slab by on allocation failure.
+const GROW_CHUNK: usize = 4 * PAGE_SIZE; // 16 KiB
 
 fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
     use free_list::PageLayout;
@@ -58,6 +61,9 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
 pub struct GlobalHeap {
     heap: Mutex<Option<SlabHeap>>,
     initialized: AtomicBool,
+    /// Next virtual address to grow each slab into, indexed by
+    /// `HeapAllocator` discriminant (0=64B, 1=128B, ..., 6=4096B, 7=buddy).
+    next_addr: Mutex<[usize; NUM_OF_SLABS + 1]>,
 }
 
 // Safety: GlobalHeap contains a Mutex (which is already Send+Sync) and an
@@ -79,6 +85,7 @@ impl GlobalHeap {
         Self {
             heap: Mutex::new(None),
             initialized: AtomicBool::new(false),
+            next_addr: Mutex::new([0; NUM_OF_SLABS + 1]),
         }
     }
 
@@ -87,14 +94,54 @@ impl GlobalHeap {
             return;
         }
 
+        let partition_size = heap_size / NUM_OF_SLABS;
+
+        // Initialize next_addr for each slab's partition.
+        {
+            let mut next = self.next_addr.lock();
+            for i in 0..=NUM_OF_SLABS {
+                next[i] = heap_start + i * partition_size;
+            }
+        }
+
         // SlabHeap::new() writes intrusive free-list metadata across the slab
         // regions. The heap virtual addresses have no physical backing yet, so
         // each write will trigger a page fault. On x86_64 the page-fault
         // handler lazily allocates a physical frame and maps it on demand.
-        // This avoids pre-allocating physical memory for the entire heap
-        // (which is 100 MiB) when only a fraction is actually used.
         *self.heap.lock() = unsafe { Some(SlabHeap::new(heap_start, heap_size)) };
         self.initialized.store(true, Ordering::Release);
+    }
+
+    /// Grow a slab by `GROW_CHUNK` pages when `allocate()` fails.
+    /// Returns `true` if the grow succeeded and the caller should retry.
+    fn grow_heap(&self, allocator: HeapAllocator) -> bool {
+        let idx = allocator as usize;
+        let partition_size = crate::allocator::HEAP_SIZE / NUM_OF_SLABS;
+        let partition_end = crate::allocator::HEAP_START + (idx + 1) * partition_size;
+
+        // Pick the next address and advance it, but don't exceed the partition.
+        let addr = {
+            let mut next = self.next_addr.lock();
+            let a = next[idx];
+            if a + GROW_CHUNK > partition_end {
+                return false;
+            }
+            next[idx] = a + GROW_CHUNK;
+            a
+        };
+
+        // grow() writes to the new memory region to initialize free-list
+        // metadata. These writes are serviced by the page-fault handler
+        // which maps physical frames on demand.
+        unsafe {
+            if let Some(ref mut heap) = *self.heap.lock() {
+                heap.grow(addr, GROW_CHUNK, allocator);
+            } else {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -105,17 +152,24 @@ unsafe impl GlobalAlloc for GlobalHeap {
         }
 
         if let Some(ref mut heap) = *self.heap.lock() {
-            let result = heap.allocate(layout);
-            let Ok(nptr) = result else {
-                return core::ptr::null_mut();
-            };
-
-            let ptr = nptr.as_ptr();
-
-            if ensure_range_mapped(ptr, layout.size()) {
-                ptr
-            } else {
-                core::ptr::null_mut()
+            match heap.allocate(layout) {
+                Ok(nptr) => {
+                    let ptr = nptr.as_ptr();
+                    if ensure_range_mapped(ptr, layout.size()) {
+                        ptr
+                    } else {
+                        core::ptr::null_mut()
+                    }
+                }
+                Err(()) => {
+                    // Slab is full — grow it by GROW_CHUNK and retry once.
+                    let allocator = SlabHeap::layout_to_allocator(&layout);
+                    let _ = heap;
+                    if self.grow_heap(allocator) {
+                        return unsafe { self.alloc(layout) };
+                    }
+                    core::ptr::null_mut()
+                }
             }
         } else {
             core::ptr::null_mut()

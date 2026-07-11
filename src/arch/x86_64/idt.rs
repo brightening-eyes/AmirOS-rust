@@ -1,5 +1,5 @@
 use super::gdt;
-use crate::allocator::{HEAP_SIZE, HEAP_START};
+use crate::allocator::{HEAP_END, HEAP_START};
 use crate::memory::{FRAME_ALLOCATOR, PAGE_MAPPER};
 use core::sync::atomic::{AtomicBool, Ordering};
 use free_list::PageLayout;
@@ -76,7 +76,7 @@ extern "x86-interrupt" fn page_fault_handler(
     // Demand-page the heap region: allocate a physical frame and map it on
     // the first access, so that SlabHeap::new() and subsequent allocations
     // can proceed without pre-allocating physical memory for the whole heap.
-    if (HEAP_START..HEAP_START + HEAP_SIZE).contains(&fault_addr) {
+    if (HEAP_START..=HEAP_END).contains(&fault_addr) {
         let page_addr = fault_addr & !0xFFF;
         let vaddr = VirtAddr::from(page_addr);
 
