@@ -18,7 +18,7 @@ local-waker = "0.1.4"
 log = "0.4.32"
 meminterval = "0.4.2"
 memory_addr = "0.4.1"
-object = { version="0.39.1", default-features=false, features=["read"] }
+object = { version="0.40.0", default-features=false, features=["read"] }
 page_table_entry = "0.6.1"
 page_table_multiarch = "0.6.1"
 slab_allocator_rs = "1.0.2"
@@ -27,7 +27,7 @@ uart_16550 = "0.6.0"
 vte = { version = "0.15.0", default-features = false }
 
 [dev-dependencies]
-husky-rs = "0.3"
+husky-rs = "0.4"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.15.4"
