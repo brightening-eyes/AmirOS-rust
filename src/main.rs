@@ -148,10 +148,8 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 /// if anything fails in the kernel, we will panic and halt
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> ! {
-    // Serial init is deferred to after memory::init() so that MMIO-based
-    // serial ports (riscv64, aarch64, loongarch64) are accessible via the
-    // HHDM. On x86_64 (PIO) the order doesn't matter.
-    // serial::init() is called below after memory init.
+    // initialize serial port before anything, so we can log.
+    serial::init();
     assert!(
         BASE_REVISION.is_supported(),
         "boot loader base revision not supported!."
@@ -172,8 +170,7 @@ pub extern "C" fn main() -> ! {
             .entries(),
     );
     log::info!("memory manager initialized.");
-    // Now that memory is set up, initialize serial (safe for MMIO-based ports).
-    serial::init();
+
     log::info!("logger initialized");
     arch::init();
     log::info!("architecture initialization complete.");
