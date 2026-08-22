@@ -1,6 +1,5 @@
 use super::gdt;
-use crate::allocator::{HEAP_END, HEAP_START};
-use crate::memory::{FRAME_ALLOCATOR, PAGE_MAPPER};
+use amir_mm::{FRAME_ALLOCATOR, HEAP_END, HEAP_START, PAGE_MAPPER};
 use core::sync::atomic::{AtomicBool, Ordering};
 use free_list::PageLayout;
 use lazy_static::lazy_static;

@@ -1,10 +1,7 @@
 //! aarch64-specific architecture code.
+#![no_std]
 
 use core::arch::asm;
-pub mod paging;
-
-pub type PageTable = paging::PageTable;
-pub type PageTableEntry = paging::PageTableEntry;
 
 /// Halts the CPU.
 pub fn holt() -> ! {

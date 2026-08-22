@@ -1,27 +1,33 @@
-// memory management
-use crate::arch;
+//! AmirOS memory management: frame allocation, paging, and the slab heap.
+#![no_std]
+
+use core::sync::atomic::{AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use limine::memmap::{Entry, MEMMAP_BAD_MEMORY};
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use spin::RwLock;
+
 pub mod allocator;
+pub mod heap;
 pub mod paging;
 
-pub type PageTable = crate::arch::PageTable;
-pub type PageTableEntry = arch::PageTableEntry;
+pub use heap::{HEAP_END, HEAP_SIZE, HEAP_START};
+
+pub type PageTable = paging::PageTable;
+pub type PageTableEntry = paging::PageTableEntry;
+
+/// Higher-half direct map offset, stored here by [`init`] before anything
+/// can touch the frame allocator or page mapper.
+static HHDM_OFFSET: AtomicUsize = AtomicUsize::new(0);
+
+fn hhdm_offset() -> usize {
+    HHDM_OFFSET.load(Ordering::Acquire)
+}
 
 lazy_static! {
-    pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> = {
-        let hhdm_offset = usize::try_from(
-            crate::HHDM_REQUEST
-                .response()
-                .expect("memory: failed to get HHDM response")
-                .offset,
-        )
-        .expect("memory: invalid HHDM offset");
-        RwLock::new(allocator::FrameAllocator::new(hhdm_offset))
-    };
+    pub static ref FRAME_ALLOCATOR: RwLock<allocator::FrameAllocator> =
+        RwLock::new(allocator::FrameAllocator::new(hhdm_offset()));
     pub static ref PAGE_MAPPER: RwLock<PageTable> = {
         let page_table = PageTable::try_new().expect("Failed to create page table");
         RwLock::new(page_table)
@@ -33,20 +39,27 @@ pub const PAGE_SIZE_2M: usize = 2 * 1024 * 1024;
 pub const PAGE_SIZE: usize = 4096;
 
 /// initialization code for the memory manager and page mapping.
+///
+/// `hhdm_offset`, `kernel_physical_base`, `kernel_virtual_base`, and
+/// `kernel_file_size` are provided by the kernel binary from its Limine boot
+/// responses, keeping this crate free of bootloader globals.
+///
 /// # Panics
 /// if initialization fails or we cant map the kernel.
-pub fn init(memmap: &[&Entry]) {
+#[allow(clippy::too_many_arguments)]
+pub fn init(
+    memmap: &[&Entry],
+    hhdm_offset_raw: u64,
+    kernel_physical_base: u64,
+    kernel_virtual_base: u64,
+    kernel_file_size: usize,
+) {
+    let hhdm_offset = usize::try_from(hhdm_offset_raw).expect("memory: invalid HHDM offset");
+    HHDM_OFFSET.store(hhdm_offset, Ordering::Release);
+
     // initialize our frame allocator.
     FRAME_ALLOCATOR.write().init(memmap);
-    // Get the necessary information from the bootloader.
-    let hhdm_offset = FRAME_ALLOCATOR.read().hhdm_offset;
-    let kernel_address = crate::EXECUTABLE_ADDRESS_REQUEST
-        .response()
-        .expect("memory: failed to get kernel address response");
-    let kernel_file = crate::EXECUTABLE_FILE_REQUEST
-        .response()
-        .expect("memory: failed to get kernel file response")
-        .executable_file();
+
     let mut mapper = PAGE_MAPPER.write();
     let flags = MappingFlags::READ | MappingFlags::WRITE;
 
@@ -127,17 +140,15 @@ pub fn init(memmap: &[&Entry]) {
 
     // Second, map the kernel itself at its higher-half virtual address.
     let kernel_physical_address = PhysAddr::from(
-        usize::try_from(kernel_address.physical_base)
+        usize::try_from(kernel_physical_base)
             .expect("memory: invalid kernel physical base address"),
     );
     let kernel_virtual_address = VirtAddr::from(
-        usize::try_from(kernel_address.virtual_base)
-            .expect("memory: invalid kernel virtual base address"),
+        usize::try_from(kernel_virtual_base).expect("memory: invalid kernel virtual base address"),
     );
-    let kernel_size =
-        (kernel_file.data().len() + crate::memory::PAGE_SIZE - 1) & !(crate::memory::PAGE_SIZE - 1);
+    let kernel_size = (kernel_file_size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
     let kflags = MappingFlags::READ | MappingFlags::WRITE | MappingFlags::EXECUTE;
-    for offset in (0..kernel_size).step_by(crate::memory::PAGE_SIZE) {
+    for offset in (0..kernel_size).step_by(PAGE_SIZE) {
         let paddr = kernel_physical_address + offset;
         let vaddr = kernel_virtual_address + offset;
         mapper

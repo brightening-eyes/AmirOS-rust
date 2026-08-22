@@ -6,7 +6,22 @@ use page_table_multiarch::{MappingFlags, PageSize};
 use slab_allocator_rs::{Heap as SlabHeap, HeapAllocator, NUM_OF_SLABS};
 use spin::Mutex;
 
-use crate::memory::PAGE_SIZE;
+use crate::{FRAME_ALLOCATOR, PAGE_MAPPER, PAGE_SIZE};
+
+pub const HEAP_START: usize = 0x_4444_4444_0000;
+/// End of the lower canonical half on x86_64 (4-level paging).
+/// `usize::MAX` is non-canonical and would cause `#GP`, not a page fault.
+pub const HEAP_END: usize = 0x0000_7FFF_FFFF_FFFF;
+pub const HEAP_SIZE: usize = HEAP_END - HEAP_START + 1;
+
+#[global_allocator]
+static HEAP: GlobalHeap = GlobalHeap::new();
+
+/// Initializes the kernel slab heap.
+pub fn init() {
+    HEAP.init(HEAP_START, HEAP_SIZE);
+    log::info!("Heap allocator initialized");
+}
 
 /// Number of pages to grow each slab by on allocation failure.
 const GROW_CHUNK: usize = 4 * PAGE_SIZE; // 16 KiB
@@ -30,7 +45,7 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
         // FRAME_ALLOCATOR (via AmirOSPagingHandler::alloc_frames) to
         // allocate page-table pages.
         let paddr = {
-            let mut frame_alloc = crate::memory::FRAME_ALLOCATOR.write();
+            let mut frame_alloc = FRAME_ALLOCATOR.write();
             match frame_alloc.allocate(layout) {
                 Ok(range) => PhysAddr::from(range.start()),
                 Err(_) => return false,
@@ -43,7 +58,7 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
         // which is safe to ignore — we just leak this one frame rather
         // than risk a TOCTOU overwrite.
         {
-            let mut mapper = crate::memory::PAGE_MAPPER.write();
+            let mut mapper = PAGE_MAPPER.write();
             let _ = mapper.cursor().map(
                 page_vaddr,
                 paddr,
@@ -116,8 +131,8 @@ impl GlobalHeap {
     /// Returns `true` if the grow succeeded and the caller should retry.
     fn grow_heap(&self, allocator: HeapAllocator) -> bool {
         let idx = allocator as usize;
-        let partition_size = crate::allocator::HEAP_SIZE / NUM_OF_SLABS;
-        let partition_end = crate::allocator::HEAP_START + (idx + 1) * partition_size;
+        let partition_size = HEAP_SIZE / NUM_OF_SLABS;
+        let partition_end = HEAP_START + (idx + 1) * partition_size;
 
         // Pick the next address and advance it, but don't exceed the partition.
         let addr = {
@@ -191,7 +206,7 @@ unsafe impl GlobalAlloc for GlobalHeap {
         let mut page = start_page;
         while page < end_page {
             let paddr = {
-                let mut mapper = crate::memory::PAGE_MAPPER.write();
+                let mut mapper = PAGE_MAPPER.write();
                 match mapper.cursor().unmap(VirtAddr::from(page)) {
                     Ok((paddr, _, _)) => paddr,
                     Err(_) => {
@@ -202,7 +217,7 @@ unsafe impl GlobalAlloc for GlobalHeap {
             };
 
             {
-                let mut frame_alloc = crate::memory::FRAME_ALLOCATOR.write();
+                let mut frame_alloc = FRAME_ALLOCATOR.write();
                 let start = paddr.as_usize();
                 let end = start + PAGE_SIZE;
                 if let Ok(page_range) = (start..end).try_into() {

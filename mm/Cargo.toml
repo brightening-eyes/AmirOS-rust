@@ -1,0 +1,16 @@
+[package]
+name = "amir_mm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+free-list = "0.3.3"
+lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
+limine = "0.6.5"
+log = "0.4.32"
+memory_addr = "0.4.1"
+page_table_entry = "0.6.1"
+page_table_multiarch = "0.6.1"
+slab_allocator_rs = "1.0.2"
+spin = "0.12.0"

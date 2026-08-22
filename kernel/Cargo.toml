@@ -1,0 +1,21 @@
+[package]
+name = "amir_kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "amir_os"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dev-dependencies]
+husky-rs = "0.4"
+
+[dependencies]
+amir_arch = { path = "../arch" }
+amir_drivers = { path = "../drivers" }
+amir_mm = { path = "../mm" }
+limine = "0.6.5"
+log = "0.4.32"

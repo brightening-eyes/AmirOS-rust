@@ -1,39 +1,26 @@
-[package]
-name = "amir_os"
+[workspace]
+resolver = "2"
+members = [
+    "kernel",
+    "hal",
+    "mm",
+    "drivers",
+    "arch",
+    "arch/x86_64",
+    "arch/riscv64",
+    "arch/aarch64",
+    "arch/loongarch64",
+]
+# Bare `cargo build` / `cargo clippy` (used by husky hooks and CI) compile the
+# kernel for the active target only, which pulls in exactly one per-arch crate
+# via target-specific dependencies. Cross-target verification is done with an
+# explicit `-p amir_kernel --target <triple>` per supported target.
+default-members = ["kernel"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0 OR MIT"
-
-[dependencies]
-acpi = "6.1.1"
-async-task = { version = "4.7.1", default-features = false }
-bit_field="0.10.3"
-critical-section = "1.2.0"
-crossbeam = { version = "0.8.4", default-features = false, features = ["alloc"] }
-either = { version = "1.16.0", default-features = false }
-free-list = "0.3.3"
-lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
-limine = "0.6.5"
-local-waker = "0.1.4"
-log = "0.4.32"
-meminterval = "0.4.2"
-memory_addr = "0.4.1"
-object = { version="0.40.0", default-features=false, features=["read"] }
-page_table_entry = "0.6.1"
-page_table_multiarch = "0.6.1"
-slab_allocator_rs = "1.0.2"
-spin = "0.12.0"
-uart_16550 = "0.8.0"
-vte = { version = "0.15.0", default-features = false }
-
-[dev-dependencies]
-husky-rs = "0.4"
-
-[target.'cfg(target_arch = "x86_64")'.dependencies]
-x86_64 = "0.15.4"
-
-[target.'cfg(target_arch = "riscv64")'.dependencies]
-riscv = "0.16.1"
 
 [profile.dev]
 panic = "abort"
@@ -46,8 +33,3 @@ panic = "abort"
 lto = "fat"
 strip = "symbols"
 overflow-checks = true
-
-[[bin]]
-name = "amir_os"
-test = false
-bench = false

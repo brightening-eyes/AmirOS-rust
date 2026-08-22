@@ -1,0 +1,11 @@
+[package]
+name = "amir_arch_riscv64"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+amir_mm = { path = "../../mm" }
+log = "0.4.32"
+memory_addr = "0.4.1"
+riscv = "0.16.1"

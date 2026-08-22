@@ -1,14 +1,5 @@
 #![no_std]
 #![no_main]
-// architecture-specific compiler features
-#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
-
-//module declarations
-pub mod allocator;
-pub mod arch;
-pub mod heap;
-pub mod memory;
-pub mod serial;
 
 //declare externs
 extern crate alloc;
@@ -67,11 +58,17 @@ static HHDM_REQUEST: HhdmRequest = HhdmRequest::new();
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 // paging mode
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(target_arch = "x86_64")]
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 static PAGING_MODE_REQUEST: PagingModeRequest =
     PagingModeRequest::new_exact(PagingMode::X86_64_4LVL);
+
+#[cfg(target_arch = "aarch64")]
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+static PAGING_MODE_REQUEST: PagingModeRequest =
+    PagingModeRequest::new_exact(PagingMode::AARCH64_4LVL);
 
 #[cfg(target_arch = "riscv64")]
 #[used]
@@ -147,9 +144,12 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 /// # Panics
 /// if anything fails in the kernel, we will panic and halt
 #[unsafe(no_mangle)]
+// On aarch64 `holt()` diverges, so the halt loops below never iterate more
+// than once; clippy's `never_loop` fires there but not on other targets.
+#[allow(clippy::never_loop)]
 pub extern "C" fn main() -> ! {
     // initialize serial port before anything, so we can log.
-    serial::init();
+    amir_drivers::serial::init();
     assert!(
         BASE_REVISION.is_supported(),
         "boot loader base revision not supported!."
@@ -163,18 +163,38 @@ pub extern "C" fn main() -> ! {
     if let Some(_framebuffer_response) = FRAMEBUFFER_REQUEST.response() {
         log::info!("we have the frame buffer, we'll do for it later");
     }
-    memory::init(
+
+    // Gather boot information here in the kernel (which owns the Limine
+    // requests) and hand raw values to the memory manager.
+    let hhdm_offset = HHDM_REQUEST
+        .response()
+        .expect("memory: failed to get HHDM response")
+        .offset;
+    let kernel_address = EXECUTABLE_ADDRESS_REQUEST
+        .response()
+        .expect("memory: failed to get kernel address response");
+    let kernel_file_size = EXECUTABLE_FILE_REQUEST
+        .response()
+        .expect("memory: failed to get kernel file response")
+        .executable_file()
+        .data()
+        .len();
+    amir_mm::init(
         MEMORY_MAP_REQUEST
             .response()
             .expect("main: failed to get memory map response")
             .entries(),
+        hhdm_offset,
+        kernel_address.physical_base,
+        kernel_address.virtual_base,
+        kernel_file_size,
     );
     log::info!("memory manager initialized.");
 
     log::info!("logger initialized");
-    arch::init();
+    amir_arch::init();
     log::info!("architecture initialization complete.");
-    allocator::init();
+    amir_mm::heap::init();
     log::info!("allocator initialized.");
     let tmp = alloc::boxed::Box::new(42);
     log::info!("{tmp}");
@@ -213,7 +233,7 @@ pub extern "C" fn main() -> ! {
         }
     }
     loop {
-        arch::holt();
+        amir_arch::holt();
     }
 }
 
@@ -226,17 +246,19 @@ pub extern "C" fn main() -> ! {
 /// - The kernel's page table, GDT, IDT, and heap must already be initialized
 ///   on the BSP before any AP is bootstrapped.
 #[allow(clippy::missing_safety_doc)]
+#[allow(clippy::never_loop)]
 pub unsafe extern "C" fn os_loop(_cpu: &limine::mp::MpInfo) -> ! {
     log::info!("processor started.");
     loop {
-        arch::holt();
+        amir_arch::holt();
     }
 }
 
 #[panic_handler]
+#[allow(clippy::never_loop)]
 fn panic(info: &PanicInfo) -> ! {
     log::error!("{info}");
     loop {
-        arch::holt();
+        amir_arch::holt();
     }
 }

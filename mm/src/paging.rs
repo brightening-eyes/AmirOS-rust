@@ -1,5 +1,5 @@
 //! Unified, multi-architecture paging using a single handler.
-use crate::memory::FRAME_ALLOCATOR;
+use crate::FRAME_ALLOCATOR;
 use core::alloc::Layout;
 use free_list::PageLayout;
 use memory_addr::{PhysAddr, VirtAddr};
@@ -47,3 +47,26 @@ impl PagingHandler for AmirOSPagingHandler {
             .expect("failed to allocate address")
     }
 }
+
+/// The concrete page table used by the running architecture, instantiated
+/// over the shared [`AmirOSPagingHandler`]. This is the single source of
+/// truth for the type; per-architecture crates consume it via `amir_mm`.
+#[cfg(target_arch = "x86_64")]
+pub type PageTable = page_table_multiarch::x86_64::X64PageTable<AmirOSPagingHandler>;
+#[cfg(target_arch = "x86_64")]
+pub type PageTableEntry = page_table_entry::x86_64::X64PTE;
+
+#[cfg(target_arch = "riscv64")]
+pub type PageTable = page_table_multiarch::riscv::Sv48PageTable<AmirOSPagingHandler>;
+#[cfg(target_arch = "riscv64")]
+pub type PageTableEntry = page_table_entry::riscv::Rv64PTE;
+
+#[cfg(target_arch = "aarch64")]
+pub type PageTable = page_table_multiarch::aarch64::A64PageTable<AmirOSPagingHandler>;
+#[cfg(target_arch = "aarch64")]
+pub type PageTableEntry = page_table_entry::aarch64::A64PTE;
+
+#[cfg(target_arch = "loongarch64")]
+pub type PageTable = page_table_multiarch::loongarch64::LA64PageTable<AmirOSPagingHandler>;
+#[cfg(target_arch = "loongarch64")]
+pub type PageTableEntry = page_table_entry::loongarch64::LA64PTE;
