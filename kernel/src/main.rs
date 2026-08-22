@@ -28,9 +28,12 @@ use limine::request::{
 use limine::{RequestsEndMarker, RequestsStartMarker};
 
 // boot loader revision
+// NOTE: `BaseRevision::new()` requests the crate's MAX_SUPPORTED revision
+// (currently 6), which no released Limine honors (v9 supports up to 3).
+// Request base revision 0 — supported by every Limine version.
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-static BASE_REVISION: BaseRevision = BaseRevision::new();
+static BASE_REVISION: BaseRevision = BaseRevision::with_revision(0);
 
 // boot loader information
 #[used]

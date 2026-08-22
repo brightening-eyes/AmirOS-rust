@@ -27,6 +27,16 @@ cargo clippy -- -D warnings
 
 Both must pass with zero output before any commit. Husky pre-commit/pre-push hooks enforce this. CI runs the same commands.
 
+## QEMU smoke test
+
+```sh
+cargo build --release
+bash scripts/qemu-smoke.sh                 # Linux/macOS (CI: qemu-smoke.yml)
+powershell -File scripts/qemu-smoke.ps1    # Windows local
+```
+
+Boots a headless q35 VM from a freshly assembled Limine ISO and asserts the serial log contains `allocator initialized`. Needs `xorriso` + `qemu-system-x86_64` on PATH; limine host tool comes from `limine/limine.c` (Linux) or `limine/limine.exe` (Windows).
+
 ## Security & compliance
 
 ```sh
