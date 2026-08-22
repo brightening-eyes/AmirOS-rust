@@ -13,8 +13,12 @@ pub fn holt() {
     }
 }
 
+pub mod irqsave;
 /// Initializes loongarch64-specific features.
 pub fn init() {
     // initialization stuff
     log::info!("loongarch64 architecture initialized.");
 }
+
+/// Late platform bring-up. No-op on loongarch64 until interrupt bring-up lands.
+pub fn init_platform(_rsdp_paddr: Option<usize>) {}

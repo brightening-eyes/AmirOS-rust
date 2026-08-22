@@ -34,3 +34,7 @@ pub fn init() {
 
     log::info!("riscv64 architecture initialized.");
 }
+
+pub mod irqsave;
+/// Late platform bring-up. No-op on riscv64 until the SBI/timer wave lands.
+pub fn init_platform(_rsdp_paddr: Option<usize>) {}

@@ -69,7 +69,7 @@ Dependency direction: `kernel → {drivers, mm, arch}`; `{drivers, arch/x86_64..
 
 ## Init flow
 
-`main()` → `serial::init()` → `memory::init()` (frame alloc from memmap, HHDM map all physical, kernel remap) → `arch::init()` (GDT, IDT, load CR3/SATP) → `allocator::init()` (slab heap) → SMP bootstrap.
+`main()` → `serial::init()` → `memory::init()` (frame alloc from memmap, HHDM map all physical, kernel remap) → `arch::init()` (GDT, IDT, load CR3/SATP; interrupts stay off) → `allocator::init()` (slab heap) → `arch::init_platform(rsdp)` (ACPI/MADT → PIC mask+remap, LAPIC map/enable, PIT-calibrated timer @100 Hz via TSC-deadline or LAPIC one-shot; enables interrupts) → SMP bootstrap.
 
 `holt()` halts: `hlt` (x86_64), `wfi` (riscv64, aarch64), `idle 0` (loongarch64).
 

@@ -202,6 +202,16 @@ pub extern "C" fn main() -> ! {
     let tmp = alloc::boxed::Box::new(42);
     log::info!("{tmp}");
 
+    // Normalize the RSDP address to a physical one: base revision 0 hands
+    // back an HHDM-mapped virtual address; subtract the offset when present.
+    let rsdp_paddr = RSDP_REQUEST.response().map(|response| {
+        let addr = response.address as usize;
+        let hhdm = amir_mm::FRAME_ALLOCATOR.read().hhdm_offset;
+        if addr >= hhdm { addr - hhdm } else { addr }
+    });
+    amir_arch::init_platform(rsdp_paddr);
+    log::info!("platform initialized.");
+
     if let Some(mp_response) = MP_REQUEST.response() {
         // Get the BSP's unique ID in an architecture-agnostic way.
         /*let bsp_id =
