@@ -6,8 +6,15 @@ use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
 use x86_64::instructions;
 use x86_64::registers::control::{Cr3, Cr3Flags};
+pub mod acpi;
 pub mod gdt;
 pub mod idt;
+pub mod irq;
+pub mod irqsave;
+pub mod lapic;
+pub mod pic;
+pub mod pit;
+pub mod timer;
 
 /// Walk the currently active 4-level page tables to translate a virtual
 /// address to its physical address. Used before the CR3 switch to find
@@ -103,7 +110,9 @@ pub fn init() {
     // uses our new page table for all memory access.
     unsafe { Cr3::write(frame, Cr3Flags::empty()) };
     drop(mapper);
-    instructions::interrupts::enable();
+    // Interrupts stay disabled until init_platform() arms the timer; only
+    // CPU exceptions (demand paging) are expected before then.
+    instructions::interrupts::disable();
 
     // Set up a guard page below the kernel stack to catch stack overflows.
     // Read the current stack pointer and unmap the page immediately below
@@ -117,4 +126,30 @@ pub fn init() {
     let _ = mapper.cursor().unmap(VirtAddr::from(guard_page));
 
     log::info!("x86_64 architecture initialized.");
+}
+
+/// Late platform bring-up: ACPI discovery, PIC/LAPIC setup, and the system
+/// timer. Runs after the kernel heap is live (ACPI parsing allocates) and
+/// leaves interrupts enabled on return.
+///
+/// # Panics
+/// Panics if the timer or LAPIC cannot be brought up — without ticks the
+/// platform cannot make progress.
+pub fn init_platform(rsdp_paddr: Option<usize>) {
+    instructions::interrupts::disable();
+
+    acpi::discover(rsdp_paddr);
+    pic::init();
+
+    let lapic_base = acpi::platform()
+        .map(|p| p.lapic_paddr)
+        .unwrap_or(lapic::DEFAULT_LAPIC_PADDR);
+    lapic::map(lapic_base);
+
+    // Spurious LAPIC vector: no IPIs are sent yet, so it should never fire.
+    lapic::enable(0xFF);
+    amir_hal::irq::register(&irq::X86IrqController);
+
+    // Calibrates, arms the first tick, and enables interrupts.
+    timer::init();
 }
