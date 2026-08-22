@@ -57,7 +57,9 @@ mm/                 FRAME_ALLOCATOR + PAGE_MAPPER globals, HHDM + kernel remap,
                     at 0x4444_4444_0000 (100 MiB, demand-paged via x86_64 PF handler)
 drivers/            serial: UART 16550 (PIO on x86_64, MMIO on other arch) + logger
 arch/               facade crate: cfg(target_arch) re-export of exactly one backend
-arch/x86_64/        GDT, IDT (breakpoint, PF, double fault w/ IST), CR3 load
+arch/x86_64/        GDT, IDT (all CPU exceptions registered; per-vector handler hooks
+                    via idt::set_exception_handler; #PF demand-pages the heap;
+                    #DF w/ IST), CR3 load
 arch/riscv64/       Sv48 paging, SATP setup
 arch/aarch64/       A64 paging
 arch/loongarch64/   LA64 paging
