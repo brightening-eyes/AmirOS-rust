@@ -1,6 +1,6 @@
 # AmirOS-rust
 
-Single-crate `#![no_std]` kernel (Rust nightly, edition 2024) targeting x86_64, riscv64, aarch64, loongarch64 via the Limine boot protocol.
+Workspace-based `#![no_std]` kernel (Rust nightly, edition 2024) targeting x86_64, riscv64, aarch64, loongarch64 via the Limine boot protocol.
 
 ## Build & cross-compile
 
@@ -13,6 +13,8 @@ cargo build --release --target loongarch64-unknown-none
 ```
 
 Default target and linker flags are set in `.cargo/config.toml`. `build-std` for `core`, `compiler_builtins`, `alloc` is pre-configured — no manual `-Z build-std` needed.
+
+The workspace uses `default-members = ["kernel"]`: bare commands build only the kernel for the active target, which pulls exactly one per-arch crate via target-specific dependencies. Never use `--workspace` for builds/clippy; verify other targets with explicit `-p amir_kernel --target <triple>`.
 
 Requires `git submodule update --init` for the Limine bootloader.
 
@@ -37,24 +39,21 @@ Advisory `RUSTSEC-2024-0436` (unmaintained `paste` via `riscv` crate) is suppres
 ## Architecture
 
 ```
-src/
-  main.rs           entry point, all Limine requests in `.limine_requests` section
-  allocator.rs      #[global_allocator]: slab heap at 0x4444_4444_0000 (100 MiB)
-  heap.rs           demand-paged physical backing (x86_64 page fault handler)
-  serial.rs         UART 16550 (PIO on x86_64, MMIO on other arch)
-  memory/
-    mod.rs          HHDM + kernel remap, FRAME_ALLOCATOR + PAGE_MAPPER globals
-    allocator.rs    FreeList<16>-based physical frame allocator
-    paging.rs       AmirOSPagingHandler (PagingHandler impl)
-  arch/
-    mod.rs          cfg(target_arch) dispatch to per-arch mod.rs
-    x86_64/         GDT, IDT (breakpoint, PF, double fault w/ IST), CR3 load
-    riscv64/        Sv48 paging, SATP setup
-    aarch64/        A64 paging
-    loongarch64/    LA64 paging
+kernel/src/main.rs  entry point, all Limine requests in `.limine_requests` section
+hal/                arch-neutral traits + `&'static dyn` registries (irq, timer, percpu, uart, framebuffer)
+mm/                 FRAME_ALLOCATOR + PAGE_MAPPER globals, HHDM + kernel remap,
+                    FreeList<16> frame allocator, AmirOSPagingHandler, cfg-selected
+                    PageTable/PageTableEntry aliases, #[global_allocator] slab heap
+                    at 0x4444_4444_0000 (100 MiB, demand-paged via x86_64 PF handler)
+drivers/            serial: UART 16550 (PIO on x86_64, MMIO on other arch) + logger
+arch/               facade crate: cfg(target_arch) re-export of exactly one backend
+arch/x86_64/        GDT, IDT (breakpoint, PF, double fault w/ IST), CR3 load
+arch/riscv64/       Sv48 paging, SATP setup
+arch/aarch64/       A64 paging
+arch/loongarch64/   LA64 paging
 ```
 
-Per-arch modules expose `init()`, `holt()`, `PageTable`, `PageTableEntry`.
+Dependency direction: `kernel → {drivers, mm, arch}`; `{drivers, arch/x86_64..} → mm`; `mm` owns all paging types (no mm↔arch cycle). Per-arch crates expose `init()`, `holt()`.
 
 ## Init flow
 
@@ -65,10 +64,11 @@ Per-arch modules expose `init()`, `holt()`, `PageTable`, `PageTableEntry`.
 ## Toolchain quirks
 
 - Rust nightly required (`rust-toolchain.toml`), edition 2024.
-- `#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]` in `main.rs`.
+- `#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]` lives in `arch/x86_64/src/lib.rs`.
 - `.cargo/config.toml` sets x86_64 rustflags: `-Tlinker-x86_64.ld`, `--image-base=0xffffffff80000000`, `-no-pie`, `relocation-model=static`, `code-model=kernel`.
-- `panic = "abort"` in both `[profile.dev]` and `[profile.release]`.
-- No tests: `test = false, bench = false` on `[[bin]]`.
+- `panic = "abort"` in both `[profile.dev]` and `[profile.release]` (workspace root).
+- No tests: `test = false, bench = false` on `[[bin]] amir_os` in `kernel/Cargo.toml`.
+- aarch64/loongarch64 link without a dedicated linker script → lld warns about `_start`; pre-existing, Limine uses the ELF entry anyway.
 - `holt()` differs per arch — see above.
 
 ## OpenCode workflow

@@ -1,4 +1,6 @@
 //! x86_64-specific architecture code.
+#![no_std]
+#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
 use core::arch::asm;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
@@ -6,10 +8,6 @@ use x86_64::instructions;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 pub mod gdt;
 pub mod idt;
-pub mod paging;
-
-pub type PageTable = paging::PageTable;
-pub type PageTableEntry = paging::PageTableEntry;
 
 /// Walk the currently active 4-level page tables to translate a virtual
 /// address to its physical address. Used before the CR3 switch to find
@@ -17,7 +15,7 @@ pub type PageTableEntry = paging::PageTableEntry;
 fn virt_to_phys(virt: usize) -> Option<usize> {
     let cr3: usize;
     unsafe { asm!("mov {}, cr3", out(reg) cr3) };
-    let hhdm = crate::memory::FRAME_ALLOCATOR.read().hhdm_offset;
+    let hhdm = amir_mm::FRAME_ALLOCATOR.read().hhdm_offset;
 
     let pml4 = unsafe { &*((cr3 + hhdm) as *const [u64; 512]) };
     let pml4e = pml4[(virt >> 39) & 0x1FF];
@@ -82,7 +80,7 @@ pub fn init() {
     let stack_base = stack_top.saturating_sub(128 * 1024);
     let flags = MappingFlags::READ | MappingFlags::WRITE;
     {
-        let mut mapper = crate::memory::PAGE_MAPPER.write();
+        let mut mapper = amir_mm::PAGE_MAPPER.write();
         let mut addr = stack_base;
         while addr < stack_top {
             if let Some(phys) = virt_to_phys(addr) {
@@ -90,12 +88,12 @@ pub fn init() {
                 let paddr = PhysAddr::from(phys);
                 let _ = mapper.cursor().map(vaddr, paddr, PageSize::Size4K, flags);
             }
-            addr += crate::memory::PAGE_SIZE;
+            addr += amir_mm::PAGE_SIZE;
         }
     }
 
     // page table is ready. load into Cr3
-    let mapper = crate::memory::PAGE_MAPPER.read();
+    let mapper = amir_mm::PAGE_MAPPER.read();
     let root_paddr = mapper.root_paddr();
     let frame = x86_64::structures::paging::PhysFrame::from_start_address(x86_64::PhysAddr::new(
         root_paddr.as_usize() as u64,
@@ -115,7 +113,7 @@ pub fn init() {
     let stack_top = (rsp + 0xFFF) & !0xFFF;
     let stack_bottom = stack_top.saturating_sub(128 * 1024);
     let guard_page = stack_bottom.saturating_sub(0x1000);
-    let mut mapper = crate::memory::PAGE_MAPPER.write();
+    let mut mapper = amir_mm::PAGE_MAPPER.write();
     let _ = mapper.cursor().unmap(VirtAddr::from(guard_page));
 
     log::info!("x86_64 architecture initialized.");

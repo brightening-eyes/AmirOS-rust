@@ -1,0 +1,8 @@
+[package]
+name = "amir_arch_loongarch64"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+log = "0.4.32"

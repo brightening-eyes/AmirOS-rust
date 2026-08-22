@@ -158,7 +158,7 @@ Each architecture provides a consistent interface:
 - `holt()` — halt the CPU (HLT/WFI/IDLE loop)
 - `PageTable` / `PageTableEntry` — page table type aliases
 
-Conditional compilation (`#[cfg(target_arch = "...")]`) in `src/arch/mod.rs` selects the correct backend at build time.
+Conditional compilation (`#[cfg(target_arch = "...")]`) in `arch/src/lib.rs` selects the correct backend crate at build time.
 
 ### Kernel Heap & Demand Paging (x86_64)
 
