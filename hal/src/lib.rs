@@ -18,7 +18,6 @@
 use core::fmt;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};
-use spin::RwLock;
 
 /// Identifies an interrupt line within the active controller's namespace.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

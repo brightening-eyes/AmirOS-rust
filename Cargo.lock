@@ -55,12 +55,14 @@ dependencies = [
 name = "amir_arch_x86_64"
 version = "0.1.0"
 dependencies = [
+ "amir_hal",
  "amir_mm",
  "free-list",
  "lazy_static",
  "log",
  "memory_addr",
  "page_table_multiarch",
+ "spin 0.12.3",
  "x86_64",
 ]
 
