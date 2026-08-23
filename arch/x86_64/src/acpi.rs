@@ -7,7 +7,7 @@
 
 use acpi::{
     AcpiTables,
-    sdt::madt::{Madt, MadtEntry},
+    sdt::madt::{self, Madt, MadtEntry, Polarity, TriggerMode},
 };
 use core::pin::Pin;
 use core::ptr::NonNull;
@@ -21,6 +21,17 @@ pub struct IoApic {
     pub gsi_base: u32,
 }
 
+/// One MADT interrupt-source override: how an ISA line maps to a GSI and
+/// which polarity/trigger the platform requires.
+#[derive(Clone, Copy, Debug)]
+pub struct IrqOverride {
+    /// Bus-relative source line (ISA for bus 0).
+    pub isa_irq: u8,
+    pub gsi: u32,
+    pub active_high: bool,
+    pub edge_triggered: bool,
+}
+
 /// The MADT-derived subset of the platform we care about in P1.
 #[derive(Clone, Debug)]
 pub struct ApicPlatform {
@@ -30,9 +41,24 @@ pub struct ApicPlatform {
     pub io_apic_count: usize,
     /// ACPI reports legacy 8259s alongside the APIC.
     pub has_legacy_pics: bool,
+    pub overrides: [Option<IrqOverride>; MAX_OVERRIDES],
+    pub override_count: usize,
+}
+
+impl ApicPlatform {
+    /// Returns the override declared for ISA line `isa_irq`, if any.
+    #[must_use]
+    pub fn isa_override(&self, isa_irq: u8) -> Option<IrqOverride> {
+        self.overrides
+            .iter()
+            .flatten()
+            .find(|o| o.isa_irq == isa_irq)
+            .copied()
+    }
 }
 
 const MAX_IO_APICS: usize = 4;
+const MAX_OVERRIDES: usize = 16;
 
 static PLATFORM: Mutex<Option<ApicPlatform>> = Mutex::new(None);
 
@@ -224,6 +250,8 @@ pub fn discover(rsdp_paddr: Option<usize>) {
     let mut lapic_base = u64::from(madt.local_apic_address);
     let mut io_apics = [const { None }; MAX_IO_APICS];
     let mut io_apic_count = 0usize;
+    let mut overrides = [const { None }; MAX_OVERRIDES];
+    let mut override_count = 0usize;
     for entry in madt.entries() {
         match entry {
             MadtEntry::LocalApicAddressOverride(e) => lapic_base = e.local_apic_address,
@@ -235,6 +263,33 @@ pub fn discover(rsdp_paddr: Option<usize>) {
                 });
                 io_apic_count += 1;
             }
+            MadtEntry::InterruptSourceOverride(e) => {
+                assert!(
+                    override_count < MAX_OVERRIDES,
+                    "acpi: too many IRQ overrides"
+                );
+                let (polarity, trigger_mode) = madt::parse_mps_inti_flags(e.flags)
+                    .expect("acpi: invalid MPS INTI flags in override");
+                let o = IrqOverride {
+                    isa_irq: e.irq,
+                    gsi: e.global_system_interrupt,
+                    active_high: polarity != Polarity::ActiveLow,
+                    edge_triggered: trigger_mode != TriggerMode::Level,
+                };
+                log::info!(
+                    "acpi: IRQ {} -> GSI {} ({}, {})",
+                    o.isa_irq,
+                    o.gsi,
+                    if o.active_high {
+                        "active-high"
+                    } else {
+                        "active-low"
+                    },
+                    if o.edge_triggered { "edge" } else { "level" }
+                );
+                overrides[override_count] = Some(o);
+                override_count += 1;
+            }
             _ => {}
         }
     }
@@ -242,9 +297,10 @@ pub fn discover(rsdp_paddr: Option<usize>) {
     let has_legacy_pics = madt.supports_8259();
     let lapic_paddr = usize::try_from(lapic_base).expect("acpi: LAPIC address overflow");
     log::info!(
-        "acpi: LAPIC @ {:#x}, {} IO-APIC(s), legacy PICs: {}",
+        "acpi: LAPIC @ {:#x}, {} IO-APIC(s), {} IRQ override(s), legacy PICs: {}",
         lapic_paddr,
         io_apic_count,
+        override_count,
         has_legacy_pics
     );
     *PLATFORM.lock() = Some(ApicPlatform {
@@ -252,5 +308,7 @@ pub fn discover(rsdp_paddr: Option<usize>) {
         io_apics,
         io_apic_count,
         has_legacy_pics,
+        overrides,
+        override_count,
     });
 }
