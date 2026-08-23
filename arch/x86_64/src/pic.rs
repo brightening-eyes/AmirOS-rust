@@ -77,3 +77,20 @@ pub fn eoi_slave() {
         Port::<u8>::new(MASTER_CMD).write(0x20);
     }
 }
+
+/// Unmasks ISA `line` (0–15) so its interrupts reach the CPU.
+///
+/// # Panics
+/// Panics for lines >= 15 (the cascade line stays reserved).
+pub fn unmask(line: u8) {
+    assert!(line < 15, "pic: cannot unmask cascade/reserved line");
+    let (port, bit) = if line < 8 {
+        (MASTER_DATA, line)
+    } else {
+        (SLAVE_DATA, line - 8)
+    };
+    unsafe {
+        let data = Port::<u8>::new(port).read();
+        Port::<u8>::new(port).write(data & !(1 << bit));
+    }
+}

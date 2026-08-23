@@ -18,8 +18,10 @@ fn tsc_deadline_msr() -> Msr {
     Msr::new(0x6B0)
 }
 
-/// External interrupt vector used for timer ticks (first above the PIC remap).
-pub const TIMER_VECTOR: u8 = 0x20;
+/// LAPIC timer tick vector. Sits above the remapped PIC range (`0x20..0x2F`)
+/// so the legacy controller can own its full band without colliding with
+/// kernel-internal vectors; the external device band starts at `0x40`.
+pub const TIMER_VECTOR: u8 = 0x30;
 /// Target tick rate. 100 Hz keeps early logs readable and CI waits short.
 const TICK_HZ: u64 = 100;
 const NS_PER_TICK: u64 = 1_000_000_000 / TICK_HZ;

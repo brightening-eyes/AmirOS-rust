@@ -158,14 +158,13 @@ lazy_static! {
             .set_handler_fn(vmm_communication_exception);
         idt.security_exception.set_handler_fn(security_exception);
 
-        // External interrupt vectors: LAPIC timer tick + PIC spurious lines.
+        // External interrupt vectors: LAPIC timer tick + every remapped PIC
+        // line (spurious-aware) + one trampoline per routable GSI vector.
         // Inert until init_platform() brings the controllers up.
         idt[super::timer::TIMER_VECTOR]
             .set_handler_fn(super::timer::tick_handler);
-        idt[super::pic::PIC_MASTER_BASE + 7]
-            .set_handler_fn(super::irq::pic_master_spurious);
-        idt[super::pic::PIC_SLAVE_BASE + 7]
-            .set_handler_fn(super::irq::pic_slave_spurious);
+        super::irq::install(&mut idt);
+        super::ioapic::install(&mut idt);
 
         idt
     };
