@@ -9,7 +9,9 @@ param(
 	[string]$Target = "x86_64-unknown-none",
 	[string]$Profile = "release",
 	[int]$TimeoutSec = 90,
-	[string]$Marker = "allocator initialized"
+	[string]$Marker = "allocator initialized",
+	[string]$SecondMarker = "",
+	[string]$ThirdMarker = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,20 +63,26 @@ try {
 	$found = $false
 	while ([DateTime]::UtcNow -lt $deadline) {
 		Start-Sleep -Milliseconds 500
-		if ((Test-Path -LiteralPath $log) -and (Select-String -LiteralPath $log -Pattern $Marker -Quiet)) {
-			$found = $true
-			break
+		if (Test-Path -LiteralPath $log) {
+			$content = Get-Content -LiteralPath $log -Raw -ErrorAction SilentlyContinue
+			$extra = ($SecondMarker -eq "" -or $content -like "*$SecondMarker*") -and `
+				($ThirdMarker -eq "" -or $content -like "*$ThirdMarker*")
+			if ($null -ne $content -and $content -like "*$Marker*" -and $extra) {
+				$found = $true
+				break
+			}
 		}
 		if ($qemu.HasExited) { break }
 	}
 	try { if (-not $qemu.HasExited) { Stop-Process -Id $qemu.Id -Force } } catch {}
 
 	if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
+	$markerList = $Marker + $(if ($SecondMarker) { ", '$SecondMarker'" }) + $(if ($ThirdMarker) { ", '$ThirdMarker'" })
 	if ($found) {
-		Write-Host "smoke PASSED: '$Marker' observed on serial"
+		Write-Host "smoke PASSED: markers observed on serial ($markerList)"
 		exit 0
 	} else {
-		Write-Error "smoke FAILED: '$Marker' not observed within ${TimeoutSec}s"
+		Write-Error "smoke FAILED: markers not observed within ${TimeoutSec}s ($markerList)"
 	}
 } finally {
 	Remove-Item -Recurse -Force $work.FullName -ErrorAction SilentlyContinue

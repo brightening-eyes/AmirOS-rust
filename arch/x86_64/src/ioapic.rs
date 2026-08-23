@@ -377,6 +377,9 @@ pub fn run_tick_selftest() {
         log::warn!("ioapic selftest skipped: no ACPI topology");
         return;
     };
+    if platform.io_apic_count == 0 {
+        return; // PIC-only platform: no redirection entries to prove.
+    }
     let gsi = platform
         .overrides
         .iter()
@@ -385,9 +388,11 @@ pub fn run_tick_selftest() {
         .map_or(0, |o| o.gsi);
     PROOF_GSI.store(gsi, Ordering::Release);
 
-    pit::start_channel0_periodic(100);
     match register_gsi(gsi, proof_top_half) {
-        Ok(()) => log::info!("ioapic selftest: routing PIT ticks on GSI {gsi}"),
+        Ok(()) => {
+            log::info!("ioapic selftest: routing PIT ticks on GSI {gsi}");
+            pit::start_channel0_periodic(100);
+        }
         Err(_) => log::warn!("ioapic selftest: could not route GSI {gsi}"),
     }
 }

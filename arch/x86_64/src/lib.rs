@@ -160,4 +160,9 @@ pub fn init_platform(rsdp_paddr: Option<usize>) {
 
     // Calibrates, arms the first tick, and enables interrupts.
     timer::init();
+
+    // Prove external-line delivery end-to-end (top half + bottom half) by
+    // routing PIT ticks through the IO-APIC; the selftest masks itself out
+    // after a few ticks so later milestones stay quiet.
+    ioapic::run_tick_selftest();
 }

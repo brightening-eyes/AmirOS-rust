@@ -10,8 +10,9 @@ TARGET="${1:-x86_64-unknown-none}"
 PROFILE="${2:-release}"
 TIMEOUT_SECS="${3:-90}"
 MARKER="${SMOKE_MARKER:-allocator initialized}"
-# Optional second marker that must also appear (e.g. timer tick evidence).
+# Optional extra markers that must also appear (e.g. timer tick evidence).
 SECOND_MARKER="${SMOKE_SECOND_MARKER:-}"
+THIRD_MARKER="${SMOKE_THIRD_MARKER:-}"
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/target/$TARGET/$PROFILE/amir_os"
@@ -58,10 +59,20 @@ set -e
 cat "$log"
 echo "== serial end (qemu exit code: $qemu_rc) =="
 
-if grep -q "$MARKER" "$log" && { [ -z "$SECOND_MARKER" ] || grep -q "$SECOND_MARKER" "$log"; }; then
-	echo "smoke PASSED: markers observed on serial ('$MARKER'${SECOND_MARKER:+, '$SECOND_MARKER'})"
+all_markers_present() {
+	grep -q "$MARKER" "$log" || return 1
+	for m in "$SECOND_MARKER" "$THIRD_MARKER"; do
+		[ -z "$m" ] || grep -q "$m" "$log" || return 1
+	done
+	return 0
+}
+
+marker_list="$MARKER${SECOND_MARKER:+, '$SECOND_MARKER'}${THIRD_MARKER:+, '$THIRD_MARKER'}"
+
+if all_markers_present; then
+	echo "smoke PASSED: markers observed on serial ($marker_list)"
 	exit 0
 else
-	echo "smoke FAILED: expected markers not observed within ${TIMEOUT_SECS}s ('$MARKER'${SECOND_MARKER:+, '$SECOND_MARKER'})" >&2
+	echo "smoke FAILED: expected markers not observed within ${TIMEOUT_SECS}s ($marker_list)" >&2
 	exit 1
 fi
