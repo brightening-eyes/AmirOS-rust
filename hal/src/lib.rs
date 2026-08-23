@@ -15,6 +15,8 @@
 
 #![no_std]
 
+pub mod bottom_half;
+
 use core::fmt;
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::{MappingFlags, PageSize};

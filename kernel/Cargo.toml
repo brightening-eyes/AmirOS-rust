@@ -16,6 +16,7 @@ husky-rs = "0.4"
 [dependencies]
 amir_arch = { path = "../arch" }
 amir_drivers = { path = "../drivers" }
+amir_hal = { path = "../hal" }
 amir_mm = { path = "../mm" }
 limine = "0.6.5"
 log = "0.4.32"

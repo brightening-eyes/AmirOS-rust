@@ -247,6 +247,7 @@ pub extern "C" fn main() -> ! {
     }
     loop {
         amir_arch::holt();
+        amir_hal::bottom_half::drain();
     }
 }
 
@@ -264,6 +265,7 @@ pub unsafe extern "C" fn os_loop(_cpu: &limine::mp::MpInfo) -> ! {
     log::info!("processor started.");
     loop {
         amir_arch::holt();
+        amir_hal::bottom_half::drain();
     }
 }
 
