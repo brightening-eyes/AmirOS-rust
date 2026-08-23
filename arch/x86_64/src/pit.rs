@@ -1,4 +1,5 @@
-//! 8253/8254 PIT channel 2 used solely as a calibration stopwatch.
+//! 8253/8254 PIT: channel 2 as a calibration stopwatch, channel 0 as a
+//! periodic external-line source for interrupt-controller selftests.
 //!
 //! `start_window_ms` programs a one-shot window; `await_window_end` spins
 //! until channel 2's OUT line rises. Sample your own clocks between the two
@@ -13,11 +14,29 @@ const PIT_FREQUENCY_HZ: u64 = 1_193_182;
 fn cmd_port() -> Port<u8> {
     Port::new(0x43)
 }
+fn ch0_data_port() -> Port<u8> {
+    Port::new(0x40)
+}
 fn ch2_data_port() -> Port<u8> {
     Port::new(0x42)
 }
 fn ctrl_port() -> Port<u8> {
     Port::new(0x61)
+}
+
+/// Programs channel 0 as a rate generator pulsing its OUT line `hz` times
+/// per second — the classic IRQ0 source for routing through a controller.
+///
+/// The output runs until reprogrammed; silencing delivery is the interrupt
+/// controller's job (mask the routed IO-APIC entry or PIC line).
+pub fn start_channel0_periodic(hz: u64) {
+    let divisor = (PIT_FREQUENCY_HZ / hz.max(1)).clamp(1, u64::from(u16::MAX)) as u16;
+    unsafe {
+        // Channel 0 | access lo+hi | mode 2 (rate generator) | binary.
+        cmd_port().write(0b0011_0100);
+        ch0_data_port().write((divisor & 0xFF) as u8);
+        ch0_data_port().write((divisor >> 8) as u8);
+    }
 }
 
 /// Arms channel 2 in one-shot (interrupt-on-terminal-count) mode for ~`ms`.
