@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+log = "0.4"
 memory_addr = "0.4.1"
 page_table_multiarch = "0.6.1"
 spin = "0.12.0"

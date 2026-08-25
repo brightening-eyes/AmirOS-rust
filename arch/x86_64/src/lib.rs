@@ -9,6 +9,7 @@ use x86_64::registers::control::{Cr3, Cr3Flags};
 pub mod acpi;
 pub mod gdt;
 pub mod idt;
+pub mod ioapic;
 pub mod irq;
 pub mod irqsave;
 pub mod lapic;
@@ -148,8 +149,20 @@ pub fn init_platform(rsdp_paddr: Option<usize>) {
 
     // Spurious LAPIC vector: no IPIs are sent yet, so it should never fire.
     lapic::enable(0xFF);
+
+    // Map IO-APIC MMIO windows and mask every redirection entry, then fix
+    // the controller mode: with an IO-APIC present it owns external lines
+    // and the PICs stay masked; without one the remapped PICs take over.
+    ioapic::init();
+    irq::set_apic_mode(acpi::platform().is_some_and(|p| p.io_apic_count > 0));
+
     amir_hal::irq::register(&irq::X86IrqController);
 
     // Calibrates, arms the first tick, and enables interrupts.
     timer::init();
+
+    // Prove external-line delivery end-to-end (top half + bottom half) by
+    // routing PIT ticks through the IO-APIC; the selftest masks itself out
+    // after a few ticks so later milestones stay quiet.
+    ioapic::run_tick_selftest();
 }

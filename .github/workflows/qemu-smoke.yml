@@ -26,4 +26,5 @@ jobs:
         env:
           SMOKE_MARKER: allocator initialized
           SMOKE_SECOND_MARKER: timer: ticks=
+          SMOKE_THIRD_MARKER: ioapic selftest passed
         run: bash scripts/qemu-smoke.sh x86_64-unknown-none release 120

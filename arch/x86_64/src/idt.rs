@@ -83,10 +83,13 @@ pub fn set_exception_handler(
     Ok(())
 }
 
-/// Pre-allocated emergency frame for the page fault handler.
-/// Used when FRAME_ALLOCATOR is contended (e.g., the faulting code
-/// holds the allocator lock). This avoids deadlock.
-static EMERGENCY_FRAME: EmergencyFrame = EmergencyFrame::new();
+/// Number of pre-allocated emergency frames for the page fault handler.
+///
+/// A single shared frame would hang the machine if two CPUs hit the
+/// deadlock-avoidance path at the same time (each faulting while holding
+/// FRAME_ALLOCATOR), so the pool holds one slot per potential concurrent
+/// victim plus headroom.
+const EMERGENCY_FRAME_SLOTS: usize = 16;
 
 struct EmergencyFrame {
     allocated: AtomicBool,
@@ -95,7 +98,7 @@ struct EmergencyFrame {
 
 // Safety: synchronization is provided by the AtomicBool gate on all
 // access to the UnsafeCell contents. Only one thread can observe
-// `allocated == true` and proceed to read the inner value.
+// `allocated == true` for a given slot and proceed to read the inner value.
 unsafe impl Sync for EmergencyFrame {}
 
 impl EmergencyFrame {
@@ -107,7 +110,7 @@ impl EmergencyFrame {
     }
 
     fn init(&self, paddr: PhysAddr) {
-        // Safety: called once during init, no concurrent access.
+        // Safety: called once during init before APs start, no concurrent access.
         unsafe { *self.paddr.get() = Some(paddr) };
         self.allocated.store(true, Ordering::Release);
     }
@@ -120,6 +123,14 @@ impl EmergencyFrame {
             None
         }
     }
+}
+
+static EMERGENCY_FRAMES: [EmergencyFrame; EMERGENCY_FRAME_SLOTS] =
+    [const { EmergencyFrame::new() }; EMERGENCY_FRAME_SLOTS];
+
+/// Takes one emergency frame from the pool, if any slot is stocked.
+fn take_emergency_frame() -> Option<PhysAddr> {
+    EMERGENCY_FRAMES.iter().find_map(EmergencyFrame::take)
 }
 
 lazy_static! {
@@ -158,14 +169,13 @@ lazy_static! {
             .set_handler_fn(vmm_communication_exception);
         idt.security_exception.set_handler_fn(security_exception);
 
-        // External interrupt vectors: LAPIC timer tick + PIC spurious lines.
+        // External interrupt vectors: LAPIC timer tick + every remapped PIC
+        // line (spurious-aware) + one trampoline per routable GSI vector.
         // Inert until init_platform() brings the controllers up.
         idt[super::timer::TIMER_VECTOR]
             .set_handler_fn(super::timer::tick_handler);
-        idt[super::pic::PIC_MASTER_BASE + 7]
-            .set_handler_fn(super::irq::pic_master_spurious);
-        idt[super::pic::PIC_SLAVE_BASE + 7]
-            .set_handler_fn(super::irq::pic_slave_spurious);
+        super::irq::install(&mut idt);
+        super::ioapic::install(&mut idt);
 
         idt
     };
@@ -295,7 +305,7 @@ fn demand_page_heap(fault_addr: usize) -> bool {
                 .expect("heap: out of physical memory for demand paging");
             break PhysAddr::from(range.start());
         }
-        if let Some(emergency) = EMERGENCY_FRAME.take() {
+        if let Some(emergency) = take_emergency_frame() {
             break emergency;
         }
         core::hint::spin_loop();
@@ -340,13 +350,17 @@ fn fatal_dump(vector: u8, frame: &InterruptStackFrame, code: Option<u64>) -> ! {
 }
 
 pub fn init() {
-    // Pre-allocate an emergency physical frame for the page fault handler,
-    // so it can service faults even when FRAME_ALLOCATOR is contended.
+    // Pre-allocate emergency physical frames for the page fault handler,
+    // so it can service faults even when FRAME_ALLOCATOR is contended by
+    // the faulting context itself. One frame per pool slot.
     let layout =
         PageLayout::from_size_align(4096, 4096).expect("x86_64: invalid emergency frame layout");
     let mut frame_alloc = FRAME_ALLOCATOR.write();
-    if let Ok(range) = frame_alloc.allocate(layout) {
-        EMERGENCY_FRAME.init(PhysAddr::from(range.start()));
+    for slot in &EMERGENCY_FRAMES {
+        match frame_alloc.allocate(layout) {
+            Ok(range) => slot.init(PhysAddr::from(range.start())),
+            Err(_) => break,
+        }
     }
     drop(frame_alloc);
 
