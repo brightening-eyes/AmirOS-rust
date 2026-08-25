@@ -1,9 +1,6 @@
 #![no_std]
 #![no_main]
 
-//declare externs
-extern crate alloc;
-//crate imports and usages
 use core::panic::PanicInfo;
 use limine::BaseRevision;
 #[cfg(any(
@@ -199,8 +196,6 @@ pub extern "C" fn main() -> ! {
     log::info!("architecture initialization complete.");
     amir_mm::heap::init();
     log::info!("allocator initialized.");
-    let tmp = alloc::boxed::Box::new(42);
-    log::info!("{tmp}");
 
     // Normalize the RSDP address to a physical one: base revision 0 hands
     // back an HHDM-mapped virtual address; subtract the offset when present.
