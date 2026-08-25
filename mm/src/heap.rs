@@ -2,7 +2,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicBool, Ordering};
 use memory_addr::{PhysAddr, VirtAddr};
-use page_table_multiarch::{MappingFlags, PageSize};
+use page_table_multiarch::{MappingFlags, PageSize, PagingError};
 use slab_allocator_rs::{Heap as SlabHeap, HeapAllocator, NUM_OF_SLABS};
 use spin::Mutex;
 
@@ -25,6 +25,15 @@ pub fn init() {
 
 /// Number of pages to grow each slab by on allocation failure.
 const GROW_CHUNK: usize = 4 * PAGE_SIZE; // 16 KiB
+
+/// Return a single 4K physical frame to the frame allocator.
+fn free_frame(paddr: PhysAddr) {
+    let start = paddr.as_usize();
+    let end = start + PAGE_SIZE;
+    if let Ok(range) = (start..end).try_into() {
+        FRAME_ALLOCATOR.write().deallocate(range);
+    }
+}
 
 fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
     use free_list::PageLayout;
@@ -52,19 +61,36 @@ fn ensure_range_mapped(start: *mut u8, size: usize) -> bool {
             }
         };
 
-        // Map the page under PAGE_MAPPER. If another thread or the page
-        // fault handler already mapped this page (race window between the
-        // allocation above and here), cursor.map() returns AlreadyMapped
-        // which is safe to ignore — we just leak this one frame rather
-        // than risk a TOCTOU overwrite.
-        {
+        // Map the page under PAGE_MAPPER. We hold no other locks here so
+        // cursor.map() is free to take FRAME_ALLOCATOR internally for
+        // page-table page allocations.
+        let mapped = {
             let mut mapper = PAGE_MAPPER.write();
-            let _ = mapper.cursor().map(
+            mapper.cursor().map(
                 page_vaddr,
                 paddr,
                 PageSize::Size4K,
                 MappingFlags::READ | MappingFlags::WRITE,
-            );
+            )
+        };
+
+        match mapped {
+            Ok(()) => {}
+            Err(PagingError::AlreadyMapped) => {
+                // The page-fault handler or another thread mapped this page
+                // while our frame was in flight. Their mapping is valid, so
+                // the caller proceeds as if we had mapped it ourselves — but
+                // our freshly allocated frame is now an orphan. The mapper
+                // lock is released above, so it is safe to hand the frame
+                // back instead of leaking one frame per collision.
+                free_frame(paddr);
+            }
+            Err(_) => {
+                // Mapping failed outright; return the unused frame and
+                // report failure so the caller can bail out.
+                free_frame(paddr);
+                return false;
+            }
         }
 
         page += PAGE_SIZE;
