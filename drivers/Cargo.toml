@@ -8,4 +8,4 @@ license.workspace = true
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 log = "0.4.32"
 spin = "0.12.0"
-uart_16550 = "0.8.0"
+uart_16550 = "0.9.0"
